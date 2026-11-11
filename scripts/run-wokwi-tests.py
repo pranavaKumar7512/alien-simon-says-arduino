@@ -539,12 +539,52 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
             next_on = on[index + 1][1]
             if forward_delta(next_on, off_at, f"cue {index + 1} onset") < 180:
                 raise RuntimeError(f"cue {index + 1} began less than 180 ms after cue {index} turned off")
+            forward_delta(next_on, gap_at, f"cue {index + 1} onset after cue {index} dark gap")
 
     lines = serial.splitlines()
     cue_on_line_indices = [i for i, line in enumerate(lines) if re.match(r"SIM_CUE_ON:\d+:\d+", line)]
     cue_off_line_indices = [i for i, line in enumerate(lines) if re.match(r"SIM_CUE_OFF:\d+:\d+", line)]
-    if len(cue_on_line_indices) != len(cues) or len(cue_off_line_indices) != len(cues):
+    cue_stop_line_indices = [i for i, line in enumerate(lines)
+                             if re.match(r"SIM_CUE_STOP_REQUEST:\d+:\d+", line)]
+    cue_gap_line_indices = [i for i, line in enumerate(lines)
+                            if re.match(r"SIM_CUE_GAP_DONE:\d+:\d+", line)]
+    if not all(len(indices) == len(cues) for indices in (
+            cue_on_line_indices, cue_off_line_indices,
+            cue_stop_line_indices, cue_gap_line_indices)):
         raise RuntimeError("could not pair cue markers with serial transcript lines")
+    for index in range(len(cues)):
+        if not (cue_on_line_indices[index] < cue_off_line_indices[index] <
+                cue_stop_line_indices[index] < cue_gap_line_indices[index]):
+            raise RuntimeError(f"cue {index} serial markers are out of order")
+        if index + 1 < len(cues) and cue_gap_line_indices[index] >= cue_on_line_indices[index + 1]:
+            raise RuntimeError(f"cue {index + 1} began before cue {index}'s dark gap completed")
+
+    cue_groups_before_input = {
+        "first-round": (1,),
+        "gameover-stale-event": (1, 1),
+        "servo-only-after-loss": (1, 2, 3, 4),
+        "start-reset": (1, 1, 1),
+        "button-remap": (1, 2, 3, 4),
+        "chunk-boundary": (11,),
+    }[name]
+    ready_values = [int(value) & 0xFFFFFFFF for value in
+                    re.findall(r"^SIM_INPUT_READY:(\d+)\s*$", serial, re.MULTILINE)]
+    ready_line_indices = [i for i, line in enumerate(lines)
+                          if re.match(r"SIM_INPUT_READY:\d+", line)]
+    if len(ready_values) != len(cue_groups_before_input):
+        raise RuntimeError(
+            f"expected {len(cue_groups_before_input)} input-ready events, found {len(ready_values)}"
+        )
+    cue_offset = 0
+    for round_index, group_length in enumerate(cue_groups_before_input):
+        final_cue = cue_offset + group_length - 1
+        if cue_gap_line_indices[final_cue] >= ready_line_indices[round_index]:
+            raise RuntimeError(f"input-ready {round_index + 1} preceded completion of its cue group")
+        forward_delta(
+            ready_values[round_index], gap[final_cue][1],
+            f"input-ready {round_index + 1} after final cue gap",
+        )
+        cue_offset += group_length
 
     for index, symbol in enumerate(cues):
         region = lines[cue_on_line_indices[index] + 1:cue_off_line_indices[index]]
@@ -596,11 +636,16 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
         game_starts = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_START"]
         wrong_answers = [i for i, line in enumerate(lines) if line.strip() == "WRONG_ANSWER"]
-        if not (len(game_over_start) == len(drained_lines) == len(game_over_stop) == 1 and
-                len(game_starts) == 2 and len(wrong_answers) == 1 and
-                game_starts[0] < wrong_answers[0] < game_over_start[0] < drained_lines[0] <
-                game_over_stop[0] < game_starts[1]):
-            raise RuntimeError("Game Over completion must be drained before stop and the next game")
+        wrong_chords = [i for i, line in enumerate(lines) if line.strip() == "WRONG_CHORD"]
+        ready_lines = [i for i, line in enumerate(lines)
+                       if re.match(r"SIM_INPUT_READY:\d+", line)]
+        if not (not wrong_chords and
+                len(game_over_start) == len(drained_lines) == len(game_over_stop) == 1 and
+                len(game_starts) == 2 and len(wrong_answers) == 1 and len(ready_lines) == 2 and
+                game_starts[0] < ready_lines[0] < wrong_answers[0] < game_over_start[0] <
+                drained_lines[0] < game_over_stop[0] < game_starts[1] and
+                game_starts[1] < ready_lines[1]):
+            raise RuntimeError("Game Over completion must follow the wrong answer, drain before stop, and reach input in the next game")
         prior_audio_starts = [i for i, line in enumerate(lines[:game_over_start[0]])
                               if re.match(r"SIM_AUDIO_START:(\d+)", line)]
         if len(prior_audio_starts) < 2:
@@ -639,13 +684,16 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         if not (len(press_lines) == len(release_lines) == 11 and len(complete_lines) == 1 and
                 ready_line < press_lines[0]):
             raise RuntimeError("round-11 input must contain eleven ordered pairs after input-ready")
+        previous_release_at = ready[0]
         for index, (pressed, released) in enumerate(zip(presses, releases)):
             if not press_lines[index] < release_lines[index]:
                 raise RuntimeError(f"round-11 answer {index + 1} release must follow its press")
             if index and release_lines[index - 1] >= press_lines[index]:
                 raise RuntimeError(f"round-11 answer {index + 1} began before the previous release")
+            forward_delta(pressed[1], previous_release_at, f"round-11 answer {index + 1} press")
             if not 25 <= forward_delta(released[1], pressed[1], f"round-11 answer {index + 1}") < 1000:
                 raise RuntimeError(f"round-11 answer {index + 1} was not debounced and released")
+            previous_release_at = released[1]
         if complete_lines[0] <= release_lines[-1]:
             raise RuntimeError("round 11 must complete only after the eleventh released answer")
         if "WRONG_ANSWER" in serial or "WRONG_CHORD" in serial or "SIM_GAME_OVER_START" in serial:
@@ -660,12 +708,20 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         retract = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT"]
         retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
         game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
-        if not (len(reset_lines) == 2 and len(game_starts) == 3 and len(queued) == 1 and
+        wrong_answers = [i for i, line in enumerate(lines) if line.strip() == "WRONG_ANSWER"]
+        wrong_chords = [i for i, line in enumerate(lines) if line.strip() == "WRONG_CHORD"]
+        ready_lines = [i for i, line in enumerate(lines)
+                       if re.match(r"SIM_INPUT_READY:\d+", line)]
+        if not (not wrong_chords and
+                len(reset_lines) == 2 and len(game_starts) == 3 and len(queued) == 1 and
+                len(wrong_answers) == 1 and len(ready_lines) == 3 and
                 len(game_over) == len(extensions) == len(retract) == len(retract_done) ==
                 len(game_over_stop) == 1 and
-                game_starts[0] < reset_lines[0] < game_starts[1] < game_over[0] < extensions[0] <
-                queued[0] < retract[0] < retract_done[0] < game_over_stop[0] < reset_lines[1] < game_starts[2]):
-            raise RuntimeError("Start must reset active play and defer a queued reset until servo return finishes")
+                game_starts[0] < ready_lines[0] < reset_lines[0] < game_starts[1] <
+                ready_lines[1] < wrong_answers[0] < game_over[0] < extensions[0] <
+                queued[0] < retract[0] < retract_done[0] < game_over_stop[0] <
+                reset_lines[1] < game_starts[2] < ready_lines[2]):
+            raise RuntimeError("Start must reset active play and defer a queued reset until the wrong-answer loss and servo return finish")
 
     if name == "servo-only-after-loss":
         rounds = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
@@ -674,11 +730,17 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         retract = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT"]
         retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
         game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
-        if not (len(rounds) == 3 and len(game_over) == len(extensions) == len(retract) ==
+        wrong_answers = [i for i, line in enumerate(lines) if line.strip() == "WRONG_ANSWER"]
+        wrong_chords = [i for i, line in enumerate(lines) if line.strip() == "WRONG_CHORD"]
+        ready_lines = [i for i, line in enumerate(lines)
+                       if re.match(r"SIM_INPUT_READY:\d+", line)]
+        if not (not wrong_chords and
+                len(rounds) == 3 and len(ready_lines) == 4 and len(wrong_answers) == 1 and
+                len(game_over) == len(extensions) == len(retract) ==
                 len(retract_done) == len(game_over_stop) == 1 and
-                rounds[-1] < game_over[0] < extensions[0] < retract[0] <
-                retract_done[0] < game_over_stop[0]):
-            raise RuntimeError("servo must stay still for successful rounds and return only after player loss")
+                rounds[-1] < ready_lines[3] < wrong_answers[0] < game_over[0] <
+                extensions[0] < retract[0] < retract_done[0] < game_over_stop[0]):
+            raise RuntimeError("servo must stay still for three successful rounds and return only after a wrong answer")
 
     if name == "button-remap":
         plan = plans[0]
@@ -738,16 +800,50 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                 [color for color, _ in releases] == [color for _, color in expected_inputs] and
                 serial.count("SIM_TEST_BUTTON_REMAP_DONE") == 1):
             raise RuntimeError("button-remap transcript is missing mapped input/round completion events")
-        for button_input, press, release in zip(button_inputs, presses, releases):
-            position, color, button_at = button_input
-            if press != (color, button_at) or release[0] != color:
-                raise RuntimeError("button position, mapped color, and input markers disagree")
-            if ((release[1] - press[1]) & 0xFFFFFFFF) < 25:
-                raise RuntimeError(f"button {position + 1} input was released before the debounce interval")
+        previous_release_at = None
+        input_offset = 0
+        for round_index, round_length in enumerate(range(1, 5)):
+            ready_at = ready[round_index]
+            for _ in range(round_length):
+                button_input = button_inputs[input_offset]
+                press = presses[input_offset]
+                release = releases[input_offset]
+                position, color, button_at = button_input
+                if press != (color, button_at) or release[0] != color:
+                    raise RuntimeError("button position, mapped color, and input markers disagree")
+                forward_delta(button_at, ready_at, f"button {position + 1} input after readiness")
+                if previous_release_at is not None:
+                    forward_delta(button_at, previous_release_at, f"button {position + 1} input chronology")
+                if forward_delta(release[1], press[1], f"button {position + 1} press/release") < 25:
+                    raise RuntimeError(f"button {position + 1} input was released before the debounce interval")
+                previous_release_at = release[1]
+                input_offset += 1
         map_lines = [i for i, line in enumerate(lines) if line.startswith("SIM_BUTTON_MAP:")]
         round_completions = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
         ready_lines = [i for i, line in enumerate(lines)
                        if re.match(r"SIM_INPUT_READY:\d+", line)]
+        button_input_lines = [i for i, line in enumerate(lines)
+                              if re.match(r"SIM_BUTTON_INPUT:[0-3]:[0-3]:\d+", line)]
+        press_lines = [i for i, line in enumerate(lines)
+                       if re.match(r"SIM_INPUT_PRESS:[0-3]:\d+", line)]
+        release_lines = [i for i, line in enumerate(lines)
+                         if re.match(r"SIM_INPUT_RELEASE:[0-3]:\d+", line)]
+        input_offset = 0
+        for round_index, round_length in enumerate(range(1, 5)):
+            final_release_line = None
+            if ready_lines[round_index] >= button_input_lines[input_offset]:
+                raise RuntimeError(f"input-ready {round_index + 1} must precede its mapped button inputs")
+            for answer_index in range(round_length):
+                event_index = input_offset + answer_index
+                if not (button_input_lines[event_index] < press_lines[event_index] <
+                        release_lines[event_index]):
+                    raise RuntimeError(f"mapped button input {event_index + 1} markers are out of order")
+                if answer_index and release_lines[event_index - 1] >= button_input_lines[event_index]:
+                    raise RuntimeError(f"mapped button input {event_index + 1} began before the prior release")
+                final_release_line = release_lines[event_index]
+            if final_release_line is None or final_release_line >= round_completions[round_index]:
+                raise RuntimeError(f"round {round_index + 1} completed before its mapped answers were released")
+            input_offset += round_length
         demo_starts = [(int(round_number), int(timestamp) & 0xFFFFFFFF)
                        for round_number, timestamp in re.findall(
                            r"^SIM_BUTTON_DEMO_START:(\d+):(\d+)\s*$", serial, re.MULTILINE)]
@@ -758,8 +854,11 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                      for round_number, encoded in re.findall(
                          r"^SIM_BUTTON_DEMO_MAP:(\d+):([0-3]{4})\s*$", serial, re.MULTILINE)]
         expected_demo_map = "".join(str(color) for color in mapping_by_round[4])
-        demo_duration = ((demo_ends[0][1] - demo_starts[0][1]) & 0xFFFFFFFF
-                         if demo_ends and demo_starts else 0)
+        demo_duration = 0
+        if len(demo_starts) == len(demo_ends) == 1:
+            demo_duration = forward_delta(
+                demo_ends[0][1], demo_starts[0][1], "button-map demo"
+            )
         if not (len(demo_starts) == len(demo_ends) == 1 and
                 demo_starts[0][0] == demo_ends[0][0] == 4 and
                 demo_maps == [(4, expected_demo_map)] and
