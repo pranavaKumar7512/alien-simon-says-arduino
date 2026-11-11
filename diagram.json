@@ -1,0 +1,600 @@
+{
+  "version": 1,
+  "author": "Pranav",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-breadboard-half",
+      "id": "bb1",
+      "top": 350,
+      "left": 330,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-arduino-uno",
+      "id": "uno",
+      "top": 35,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "chip-grove-jhd1804",
+      "id": "lcd",
+      "top": 300,
+      "left": 150,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo-visual-only",
+      "top": 125,
+      "left": 680,
+      "attrs": {}
+    },
+    {
+      "type": "chip-dfplayer-mock",
+      "id": "dfplayer-mock",
+      "top": 405,
+      "left": 680,
+      "attrs": {
+        "completionDelayMs": "250"
+      }
+    },
+    {
+      "type": "chip-visual-speaker",
+      "id": "visual-speaker",
+      "top": 405,
+      "left": 820,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "mp3-tx-resistor",
+      "top": 434.6,
+      "left": 326.65,
+      "rotate": 90,
+      "attrs": {
+        "value": "1000"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "button-red",
+      "top": 440.4,
+      "left": 379.2,
+      "rotate": 90,
+      "attrs": {
+        "color": "red"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "button-green",
+      "top": 440.4,
+      "left": 436.8,
+      "rotate": 90,
+      "attrs": {
+        "color": "green"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "button-blue",
+      "top": 440.4,
+      "left": 494.4,
+      "rotate": 90,
+      "attrs": {
+        "color": "blue"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "button-yellow",
+      "top": 440.4,
+      "left": 552,
+      "rotate": 90,
+      "attrs": {
+        "color": "yellow"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "button-start",
+      "top": 440.4,
+      "left": 609.6,
+      "rotate": 90,
+      "attrs": {
+        "color": "gray"
+      }
+    },
+    {
+      "type": "wokwi-led-strip",
+      "id": "neopixel-red",
+      "top": 359,
+      "left": 387.537,
+      "rotate": 90,
+      "attrs": {
+        "pixels": "4",
+        "pixelSize": "2020"
+      }
+    },
+    {
+      "type": "wokwi-led-strip",
+      "id": "neopixel-green",
+      "top": 359,
+      "left": 445.137,
+      "rotate": 90,
+      "attrs": {
+        "pixels": "4",
+        "pixelSize": "2020"
+      }
+    },
+    {
+      "type": "wokwi-led-strip",
+      "id": "neopixel-blue",
+      "top": 359,
+      "left": 502.737,
+      "rotate": 90,
+      "attrs": {
+        "pixels": "4",
+        "pixelSize": "2020"
+      }
+    },
+    {
+      "type": "wokwi-led-strip",
+      "id": "neopixel-yellow",
+      "top": 359,
+      "left": 560.337,
+      "rotate": 90,
+      "attrs": {
+        "pixels": "4",
+        "pixelSize": "2020"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "uno:5V",
+      "bb1:tp.1",
+      "#1769AA",
+      []
+    ],
+    [
+      "bb1:tp.2",
+      "lcd:VCC",
+      "#E60000",
+      []
+    ],
+    [
+      "bb1:tp.3",
+      "dfplayer-mock:VCC",
+      "#00AD00",
+      []
+    ],
+    [
+      "uno:GND.1",
+      "bb1:bn.1",
+      "#0000E6",
+      []
+    ],
+    [
+      "bb1:bn.29",
+      "lcd:GND",
+      "#E60EA1",
+      []
+    ],
+    [
+      "bb1:bn.30",
+      "dfplayer-mock:GND",
+      "#665012",
+      []
+    ],
+    [
+      "uno:5V",
+      "servo-visual-only:V+",
+      "#009C87",
+      []
+    ],
+    [
+      "uno:GND.1",
+      "servo-visual-only:GND",
+      "#78002C",
+      []
+    ],
+    [
+      "uno:A4",
+      "bb1:2t.a",
+      "#55198A",
+      []
+    ],
+    [
+      "bb1:2t.b",
+      "lcd:SDA",
+      "#D17600",
+      []
+    ],
+    [
+      "uno:A5",
+      "bb1:3t.a",
+      "#8F9C00",
+      []
+    ],
+    [
+      "bb1:3t.b",
+      "lcd:SCL",
+      "#CB00E6",
+      []
+    ],
+    [
+      "dfplayer-mock:TX",
+      "bb1:5t.a",
+      "#066613",
+      []
+    ],
+    [
+      "bb1:5t.b",
+      "uno:10",
+      "#E60054",
+      []
+    ],
+    [
+      "uno:9",
+      "bb1:7t.a",
+      "#0E68E6",
+      []
+    ],
+    [
+      "bb1:7t.b",
+      "servo-visual-only:PWM",
+      "#9C2909",
+      []
+    ],
+    [
+      "dfplayer-mock:SPK1",
+      "bb1:11t.a",
+      "#0B9EBF",
+      []
+    ],
+    [
+      "bb1:11t.b",
+      "visual-speaker:SPK1",
+      "#8A0869",
+      []
+    ],
+    [
+      "dfplayer-mock:SPK2",
+      "bb1:13t.a",
+      "#7849E6",
+      []
+    ],
+    [
+      "bb1:13t.b",
+      "visual-speaker:SPK2",
+      "#B43DBF",
+      []
+    ],
+    [
+      "uno:11",
+      "bb1:1t.a",
+      "#D1437C",
+      []
+    ],
+    [
+      "mp3-tx-resistor:1",
+      "bb1:1t.b",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "mp3-tx-resistor:2",
+      "bb1:1b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "bb1:1b.g",
+      "dfplayer-mock:RX",
+      "#00378A",
+      []
+    ],
+    [
+      "uno:6",
+      "bb1:6t.a",
+      "#662912",
+      []
+    ],
+    [
+      "button-red:1.l",
+      "bb1:6t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-red:1.r",
+      "bb1:6b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-red:2.l",
+      "bb1:4t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-red:2.r",
+      "bb1:4b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "bb1:4b.j",
+      "bb1:10b.j",
+      "#AD8E37",
+      []
+    ],
+    [
+      "uno:7",
+      "bb1:12t.a",
+      "#AD6537",
+      []
+    ],
+    [
+      "button-green:1.l",
+      "bb1:12t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-green:1.r",
+      "bb1:12b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-green:2.l",
+      "bb1:10t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-green:2.r",
+      "bb1:10b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+
+    [
+      "uno:8",
+      "bb1:18t.a",
+      "#657826",
+      []
+    ],
+    [
+      "button-blue:1.l",
+      "bb1:18t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-blue:1.r",
+      "bb1:18b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-blue:2.l",
+      "bb1:16t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-blue:2.r",
+      "bb1:16b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "bb1:10b.j",
+      "bb1:16b.j",
+      "#099C5C",
+      []
+    ],
+    [
+      "uno:A0",
+      "bb1:24t.a",
+      "#E65149",
+      []
+    ],
+    [
+      "button-yellow:1.l",
+      "bb1:24t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-yellow:1.r",
+      "bb1:24b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-yellow:2.l",
+      "bb1:22t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-yellow:2.r",
+      "bb1:22b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+
+    [
+      "uno:A1",
+      "bb1:30t.a",
+      "#66214B",
+      []
+    ],
+    [
+      "button-start:1.l",
+      "bb1:30t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-start:1.r",
+      "bb1:30b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-start:2.l",
+      "bb1:28t.e",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "button-start:2.r",
+      "bb1:28b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "bb1:16b.j",
+      "bb1:22b.j",
+      "#589C1C",
+      []
+    ],
+    [
+      "bb1:22b.j",
+      "bb1:28b.j",
+      "#4985E6",
+      []
+    ],
+    [
+      "bb1:28b.j",
+      "bb1:bn.28",
+      "#00FFFF",
+      []
+    ],
+    [
+      "uno:2",
+      "neopixel-red:DIN",
+      "#9060B0",
+      []
+    ],
+    [
+      "neopixel-red:DOUT",
+      "neopixel-green:DIN",
+      "#F0D0F0",
+      []
+    ],
+    [
+      "neopixel-green:DOUT",
+      "neopixel-blue:DIN",
+      "#F0C0A0",
+      []
+    ],
+    [
+      "neopixel-blue:DOUT",
+      "neopixel-yellow:DIN",
+      "#B07080",
+      []
+    ],
+    [
+      "neopixel-red:VDD",
+      "bb1:tp.4",
+      "#808060",
+      []
+    ],
+    [
+      "neopixel-red:VSS",
+      "bb1:bn.28",
+      "#303020",
+      []
+    ],
+    [
+      "neopixel-green:VDD",
+      "bb1:tp.4",
+      "#D0F0B0",
+      []
+    ],
+    [
+      "neopixel-green:VSS",
+      "bb1:bn.28",
+      "#F0F030",
+      []
+    ],
+    [
+      "neopixel-blue:VDD",
+      "bb1:tp.4",
+      "#30F090",
+      []
+    ],
+    [
+      "neopixel-blue:VSS",
+      "bb1:bn.28",
+      "#C0F0F0",
+      []
+    ],
+    [
+      "neopixel-yellow:VDD",
+      "bb1:tp.4",
+      "#A0F030",
+      []
+    ],
+    [
+      "neopixel-yellow:VSS",
+      "bb1:bn.28",
+      "#F090D0",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

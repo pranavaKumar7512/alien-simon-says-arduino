@@ -1,0 +1,15 @@
+{
+  "name": "MP3-TF-16P DFPlayer Mock (protocol only)",
+  "author": "Project-local Wokwi model",
+  "pins": ["VCC", "GND", "RX", "TX", "SPK1", "SPK2"],
+  "controls": [
+    {
+      "id": "completionDelayMs",
+      "label": "Mock completion delay (ms)",
+      "type": "range",
+      "min": 50,
+      "max": 1500,
+      "step": 50
+    }
+  ]
+}

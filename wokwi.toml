@@ -1,0 +1,16 @@
+[wokwi]
+version = 1
+firmware = "build/wokwi/alien-simon-says.ino.hex"
+elf = "build/wokwi/alien-simon-says.ino.elf"
+
+[[chip]]
+name = "grove-jhd1804"
+binary = "chips/grove-jhd1804.chip.wasm"
+
+[[chip]]
+name = "dfplayer-mock"
+binary = "chips/dfplayer-mock.chip.wasm"
+
+[[chip]]
+name = "visual-speaker"
+binary = "chips/visual-speaker.chip.wasm"

@@ -1,0 +1,10 @@
+build/
+*.elf
+*.hex
+*.bin
+*.wasm
+__pycache__/
+*.py[cod]
+.wokwi-sequence-state.json*
+
+.pytest_cache/

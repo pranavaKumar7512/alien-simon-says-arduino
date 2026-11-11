@@ -1,0 +1,95 @@
+#include <assert.h>
+#include <stdio.h>
+
+#include "../player_led_feedback.h"
+
+typedef struct {
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+} FakePixel;
+
+static unsigned int write_count;
+static FakePixel pixels[PLAYER_LED_PIXEL_COUNT];
+static const PlayerLedRgb EXPECTED_MAPPED_COLORS[PLAYER_LED_SYMBOL_COUNT] = {
+  {255U, 0U, 0U},   // red
+  {0U, 255U, 0U},   // green
+  {0U, 0U, 255U},   // blue
+  {255U, 255U, 0U}  // yellow
+};
+
+static void reset_pixels(void) {
+  write_count = 0;
+  for (uint8_t i = 0; i < PLAYER_LED_PIXEL_COUNT; ++i) {
+    pixels[i] = (FakePixel){0U, 0U, 0U};
+  }
+}
+
+static void fake_pixel_write(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue) {
+  ++write_count;
+  assert(pixel < PLAYER_LED_PIXEL_COUNT);
+  pixels[pixel].red = red;
+  pixels[pixel].green = green;
+  pixels[pixel].blue = blue;
+}
+
+static bool is_rgb(FakePixel pixel, PlayerLedRgb expected) {
+  return pixel.red == expected.red &&
+         pixel.green == expected.green &&
+         pixel.blue == expected.blue;
+}
+
+static void assert_group_pattern(uint8_t active_group, bool active) {
+  const PlayerLedRgb black = {0U, 0U, 0U};
+  for (uint8_t group = 0; group < PLAYER_LED_SYMBOL_COUNT; ++group) {
+    const PlayerLedRgb expected = active && group == active_group
+                                      ? EXPECTED_MAPPED_COLORS[group]
+                                      : black;
+    for (uint8_t offset = 0; offset < PLAYER_LED_PIXELS_PER_SYMBOL; ++offset) {
+      const uint8_t pixel = (uint8_t)(group * PLAYER_LED_PIXELS_PER_SYMBOL + offset);
+      assert(is_rgb(pixels[pixel], expected));
+    }
+  }
+}
+
+int main(void) {
+  assert(PLAYER_LED_PIXEL_COUNT == 16U);
+  assert(PLAYER_LED_SYMBOL_COUNT == 4U);
+  assert(PLAYER_LED_PIXELS_PER_SYMBOL == 4U);
+  assert(PLAYER_LED_DATA_PIN == 2U);
+  assert(PLAYER_LED_BRIGHTNESS == 255U);
+
+  for (uint8_t symbol = 0; symbol < PLAYER_LED_SYMBOL_COUNT; ++symbol) {
+    reset_pixels();
+    assert(playerLedSet(symbol, true, fake_pixel_write));
+    assert(write_count == PLAYER_LED_PIXEL_COUNT);
+    assert_group_pattern(symbol, true);
+
+    reset_pixels();
+    assert(playerLedSet(symbol, false, fake_pixel_write));
+    assert(write_count == PLAYER_LED_PIXEL_COUNT);
+    assert_group_pattern(symbol, false);
+  }
+
+  reset_pixels();
+  assert(playerLedSetAllMappedColors(fake_pixel_write));
+  assert(write_count == PLAYER_LED_PIXEL_COUNT);
+  for (uint8_t group = 0; group < PLAYER_LED_SYMBOL_COUNT; ++group) {
+    for (uint8_t offset = 0; offset < PLAYER_LED_PIXELS_PER_SYMBOL; ++offset) {
+      const uint8_t pixel = (uint8_t)(group * PLAYER_LED_PIXELS_PER_SYMBOL + offset);
+      assert(is_rgb(pixels[pixel], EXPECTED_MAPPED_COLORS[group]));
+    }
+  }
+
+  reset_pixels();
+  assert(!playerLedSet(PLAYER_LED_SYMBOL_COUNT, true, fake_pixel_write));
+  assert(!playerLedSet(0xFFU, false, fake_pixel_write));
+  assert(write_count == 0U);
+  assert(!playerLedSet(0U, true, 0));
+  assert(!playerLedSetAllMappedColors(0));
+  assert(write_count == 0U);
+
+  puts("sixteen-pixel four-strip NeoPixel group tests passed");
+  return 0;
+}
+

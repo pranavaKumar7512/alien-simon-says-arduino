@@ -1,0 +1,23 @@
+{
+  "configurations": [
+    {
+      "name": "Wokwi custom chips (WASI)",
+      "includePath": [
+        "${workspaceFolder}/chips",
+        "${workspaceFolder}"
+      ],
+      "defines": [
+        "__wasi__",
+        "__wasm32__"
+      ],
+      "compilerPath": "${env:USERPROFILE}/.wokwi/wasi-sdk/bin/wasm32-wasi-clang.exe",
+      "compilerArgs": [
+        "--target=wasm32-wasi"
+      ],
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "windows-clang-x86"
+    }
+  ],
+  "version": 4
+}

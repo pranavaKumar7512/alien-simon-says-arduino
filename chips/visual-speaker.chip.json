@@ -1,0 +1,6 @@
+{
+  "name": "8 Ω / 0.5 W — no playback",
+  "author": "Project-local visual-only model",
+  "pins": ["SPK1", "SPK2"],
+  "controls": []
+}

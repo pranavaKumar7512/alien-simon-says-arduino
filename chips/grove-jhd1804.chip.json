@@ -1,0 +1,10 @@
+{
+  "name": "Grove 16x2 LCD (JHD1804M1)",
+  "author": "Project-local Wokwi model",
+  "pins": ["VCC", "GND", "SDA", "SCL"],
+  "controls": [],
+  "display": {
+    "width": 128,
+    "height": 32
+  }
+}
