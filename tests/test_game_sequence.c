@@ -4,73 +4,71 @@
 
 #include "../game_sequence.h"
 
-static uint8_t take_four_symbol_mask(GameSequenceStream *stream, uint8_t first) {
-  uint8_t seen = (uint8_t)(1U << first);
-  for (uint8_t i = 1U; i < GAME_SEQUENCE_SYMBOL_COUNT; ++i) {
-    const uint8_t symbol = gameSequenceNextSymbol(stream);
-    assert(symbol < GAME_SEQUENCE_SYMBOL_COUNT);
-    assert((seen & (uint8_t)(1U << symbol)) == 0U);
-    seen |= (uint8_t)(1U << symbol);
-  }
-  return seen;
-}
-
-static void test_each_four_cues_use_every_color_once(void) {
+static void test_every_cue_is_a_valid_symbol(void) {
   for (uint32_t seed = 1U; seed <= 2048U; ++seed) {
     GameSequenceStream stream;
-    const uint8_t first = gameSequenceChooseFirst(
-        &stream, seed, GAME_SEQUENCE_NO_PREVIOUS);
-    assert(first < GAME_SEQUENCE_SYMBOL_COUNT);
-    assert(take_four_symbol_mask(&stream, first) == 0x0FU);
-
-    for (uint8_t block = 1U; block < 8U; ++block) {
-      const uint8_t next = gameSequenceNextSymbol(&stream);
-      assert(take_four_symbol_mask(&stream, next) == 0x0FU);
+    uint8_t symbol = gameSequenceChooseFirst(&stream, seed);
+    assert(symbol < GAME_SEQUENCE_SYMBOL_COUNT);
+    for (uint8_t cue = 1U; cue < 32U; ++cue) {
+      symbol = gameSequenceNextSymbol(&stream);
+      assert(symbol < GAME_SEQUENCE_SYMBOL_COUNT);
     }
   }
 }
 
-static void test_first_color_excludes_previous_but_all_others_are_eligible(void) {
-  for (uint8_t previous = 0U; previous < GAME_SEQUENCE_SYMBOL_COUNT; ++previous) {
-    uint16_t counts[GAME_SEQUENCE_SYMBOL_COUNT] = {0U, 0U, 0U, 0U};
-    for (uint32_t seed = 1U; seed <= 4096U; ++seed) {
-      GameSequenceStream stream;
-      const uint8_t first = gameSequenceChooseFirst(&stream, seed, previous);
-      assert(first < GAME_SEQUENCE_SYMBOL_COUNT);
-      assert(first != previous);
-      ++counts[first];
-    }
-
-    assert(counts[previous] == 0U);
-    for (uint8_t color = 0U; color < GAME_SEQUENCE_SYMBOL_COUNT; ++color) {
-      if (color != previous) assert(counts[color] > 100U);
-    }
-  }
-}
-
-static void test_first_color_is_unconstrained_on_first_game(void) {
+static void test_first_draws_cover_all_four_colors(void) {
   uint16_t counts[GAME_SEQUENCE_SYMBOL_COUNT] = {0U, 0U, 0U, 0U};
   for (uint32_t seed = 1U; seed <= 4096U; ++seed) {
     GameSequenceStream stream;
-    const uint8_t first = gameSequenceChooseFirst(
-        &stream, seed, GAME_SEQUENCE_NO_PREVIOUS);
-    assert(first < GAME_SEQUENCE_SYMBOL_COUNT);
+    const uint8_t first = gameSequenceChooseFirst(&stream, seed);
     ++counts[first];
   }
   for (uint8_t color = 0U; color < GAME_SEQUENCE_SYMBOL_COUNT; ++color) {
-    assert(counts[color] > 500U);
+    assert(counts[color] == 1024U);
   }
 }
 
+static void test_repeated_cues_are_allowed(void) {
+  static const uint8_t expected[8] = {1U, 1U, 1U, 3U, 1U, 0U, 2U, 2U};
+  GameSequenceStream stream;
+  assert(gameSequenceChooseFirst(&stream, 1U) == expected[0]);
+  for (uint8_t i = 1U; i < 8U; ++i) {
+    assert(gameSequenceNextSymbol(&stream) == expected[i]);
+  }
+}
+
+static void test_uniform_below_rejects_upper_nonzero_states(void) {
+  static const uint32_t seeds[3] = {
+    0xBB07F6B5UL, 0xACD979CEUL, 0x5E6CFCE7UL
+  };
+  static const uint32_t rejected[3] = {
+    0xFFFFFFFDUL, 0xFFFFFFFEUL, 0xFFFFFFFFUL
+  };
+  static const uint32_t accepted[3] = {
+    0x000BA05DUL, 0x0007C03EUL, 0x0003E01FUL
+  };
+  static const uint8_t expected[3] = {1U, 2U, 3U};
+
+  for (uint8_t i = 0U; i < 3U; ++i) {
+    uint32_t probe = seeds[i];
+    assert(gameSequenceXorshift32(&probe) == rejected[i]);
+
+    uint32_t state = seeds[i];
+    assert(gameSequenceUniformBelow(&state, 4U) == expected[i]);
+    assert(state == accepted[i]);
+  }
+}
+
+
 static void test_seed_replay(void) {
   static const uint8_t expected[16] = {
-    3U, 0U, 1U, 2U, 0U, 2U, 1U, 3U,
-    0U, 2U, 1U, 3U, 1U, 2U, 0U, 3U
+    2U, 2U, 3U, 3U, 1U, 1U, 3U, 1U,
+    3U, 3U, 3U, 0U, 2U, 1U, 0U, 2U
   };
   GameSequenceStream first;
   GameSequenceStream replay;
-  const uint8_t firstSymbol = gameSequenceChooseFirst(&first, 0xA341316CUL, 2U);
-  const uint8_t replayFirst = gameSequenceChooseFirst(&replay, 0xA341316CUL, 2U);
+  const uint8_t firstSymbol = gameSequenceChooseFirst(&first, 0xA341316CUL);
+  const uint8_t replayFirst = gameSequenceChooseFirst(&replay, 0xA341316CUL);
   assert(firstSymbol == replayFirst);
   assert(firstSymbol == expected[0]);
 
@@ -82,23 +80,22 @@ static void test_seed_replay(void) {
     assert(gameSequenceNextSymbol(&first) == gameSequenceNextSymbol(&replay));
   }
   assert(first.state == replay.state);
-  assert(first.next_index == replay.next_index);
 }
 
 static void test_zero_seed_recovers_to_nonzero_stream(void) {
   GameSequenceStream stream;
-  const uint8_t symbol = gameSequenceChooseFirst(
-      &stream, 0U, GAME_SEQUENCE_NO_PREVIOUS);
+  const uint8_t symbol = gameSequenceChooseFirst(&stream, 0U);
   assert(symbol < GAME_SEQUENCE_SYMBOL_COUNT);
   assert(stream.state != 0U);
 }
 
 int main(void) {
-  test_each_four_cues_use_every_color_once();
-  test_first_color_excludes_previous_but_all_others_are_eligible();
-  test_first_color_is_unconstrained_on_first_game();
+  test_every_cue_is_a_valid_symbol();
+  test_first_draws_cover_all_four_colors();
+  test_repeated_cues_are_allowed();
+  test_uniform_below_rejects_upper_nonzero_states();
   test_seed_replay();
   test_zero_seed_recovers_to_nonzero_stream();
-  puts("balanced shuffled-bag game sequence tests passed");
+  puts("with-replacement pseudo-random game sequence tests passed");
   return 0;
 }

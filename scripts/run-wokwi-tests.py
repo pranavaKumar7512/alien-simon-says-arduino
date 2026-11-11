@@ -58,46 +58,25 @@ def xorshift32(state: int) -> int:
 
 
 def uniform_below(state: int, bound: int) -> tuple[int, int]:
-    """Use rejection sampling to avoid modulo bias, matching game_sequence.h."""
-    threshold = ((-bound) & 0xFFFFFFFF) % bound
+    """Mirror firmware rejection over xorshift32's nonzero output domain."""
+    if bound < 2:
+        return 0, state
+    largest_accepted = 0xFFFFFFFF - (0xFFFFFFFF % bound)
     while True:
         state = xorshift32(state)
-        if state >= threshold:
+        if state <= largest_accepted:
             return state % bound, state
 
 
-def shuffle_segment(state: int, bag: list[int], start: int) -> int:
-    for remaining in range(len(bag) - start, 1, -1):
-        chosen, state = uniform_below(state, remaining)
-        left = start + remaining - 1
-        right = start + chosen
-        bag[left], bag[right] = bag[right], bag[left]
-    return state
-
-
 def game_plan(seed: int, previous_first: int | None, length: int) -> GamePlan:
+    """Plan with-replacement pseudo-random cues; previous_first is metadata only."""
     if not 1 <= seed <= 0xFFFFFFFF:
         raise ValueError("Wokwi seed must be a nonzero 32-bit value")
     state = seed
-    if previous_first is None:
-        bag = list(range(len(COLORS)))
-        state = shuffle_segment(state, bag, 0)
-    else:
-        first, state = uniform_below(state, len(COLORS) - 1)
-        if first >= previous_first:
-            first += 1
-        bag = [first] + [color for color in range(len(COLORS)) if color != first]
-        state = shuffle_segment(state, bag, 1)
-
     symbols: list[int] = []
-    bag_index = 0
     for _ in range(length):
-        if bag_index >= len(bag):
-            bag = list(range(len(COLORS)))
-            state = shuffle_segment(state, bag, 0)
-            bag_index = 0
-        symbols.append(bag[bag_index])
-        bag_index += 1
+        symbol, state = uniform_below(state, len(COLORS))
+        symbols.append(symbol)
     return GamePlan(seed, previous_first, tuple(symbols))
 
 
@@ -282,7 +261,7 @@ def read_state(path: Path) -> int | None:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         color = data["previous_first_color"]
-        if data.get("version") != 1 or (color is not None and color not in range(4)):
+        if data.get("version") != 1 or (color is not None and (type(color) is not int or color not in range(4))):
             raise ValueError("unsupported or invalid state values")
         return color
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
@@ -415,10 +394,6 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
     expected_first_colors = [plan.first for plan in plans]
     if first_colors != expected_first_colors:
         raise RuntimeError(f"firmware first-color log {first_colors} does not match expected {expected_first_colors}")
-    for earlier, later in zip(first_colors, first_colors[1:]):
-        if earlier == later:
-            raise RuntimeError("successive games in this Wokwi launch repeated their first color")
-
     cues = expected_cues(name, plans)
     on = marker_values(serial, "SIM_CUE_ON")
     off = marker_values(serial, "SIM_CUE_OFF")
@@ -482,8 +457,12 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
             raise RuntimeError("transcript contains the removed player input timeout")
         if "SIM_GAME_OVER_START" in serial:
             raise RuntimeError("first-round answer entered Game Over before successful completion")
+        press_line = next(i for i, line in enumerate(lines)
+                          if re.match(r"SIM_INPUT_PRESS:\d+:\d+", line))
         release_line = next(i for i, line in enumerate(lines)
                             if re.match(r"SIM_INPUT_RELEASE:\d+:\d+", line))
+        if press_line >= release_line:
+            raise RuntimeError("answer release must follow its press")
         complete_line = next((i for i, line in enumerate(lines)
                               if line.strip() == "SIM_ROUND_COMPLETE"), None)
         if complete_line is None or complete_line <= release_line:
@@ -604,7 +583,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=parse_seed,
                         help="replay seed (decimal or 0x-prefixed hex); omitted seeds use OS randomness")
     parser.add_argument("--previous-first-color", type=parse_color, default=UNSET,
-                        help="replay state: none, red/green/blue/yellow, or index 0..3")
+                        help="replay metadata only: none, red/green/blue/yellow, or index 0..3")
     parser.add_argument("--state-file", type=Path, default=STATE_DEFAULT)
     parser.add_argument("--no-persist", action="store_true", help="do not update the local state file")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "build" / "wokwi-tests")

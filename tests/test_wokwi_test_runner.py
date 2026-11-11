@@ -12,14 +12,12 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class WokwiTestRunnerTests(unittest.TestCase):
-    def test_first_symbol_differs_and_only_first_symbol_is_constrained(self):
-        first_game = RUNNER.game_plan(0x12345678, None, 32)
-        next_game = RUNNER.game_plan(0x12345678, first_game.first, 32)
-        self.assertNotEqual(first_game.first, next_game.first)
-        self.assertEqual(set(next_game.symbols[1:]), set(range(4)))
-        for plan in (first_game, next_game):
-            for start in range(0, len(plan.symbols), 4):
-                self.assertEqual(set(plan.symbols[start:start + 4]), set(range(4)))
+    def test_previous_first_color_does_not_influence_generated_symbols(self):
+        baseline = RUNNER.game_plan(0xA341316C, None, 32)
+        for previous in range(4):
+            plan = RUNNER.game_plan(0xA341316C, previous, 32)
+            self.assertEqual(plan.symbols, baseline.symbols)
+            self.assertEqual(plan.previous_first, previous)
 
     def test_seed_replay_and_next_game_seed_match_firmware_prng(self):
         first = RUNNER.game_plan(0xA341316C, 2, 12)
@@ -27,11 +25,54 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertEqual(first, replay)
         self.assertEqual(
             first.symbols,
-            (3, 0, 1, 2, 0, 2, 1, 3, 0, 2, 1, 3),
+            (2, 2, 3, 3, 1, 1, 3, 1, 3, 3, 3, 0),
         )
         self.assertEqual(RUNNER.next_game_seed(1), 270369)
-        self.assertEqual(set(first.symbols[:4]), set(range(4)))
-        self.assertEqual(set(first.symbols[4:8]), set(range(4)))
+        self.assertEqual(first.symbols[:8], (2, 2, 3, 3, 1, 1, 3, 1))
+
+    def test_sampling_with_replacement_allows_repeats(self):
+        plan = RUNNER.game_plan(1, None, 8)
+        self.assertEqual(plan.symbols, (1, 1, 1, 3, 1, 0, 2, 2))
+        self.assertEqual(plan.symbols[0], plan.symbols[1])
+
+    def test_uniform_below_rejects_upper_nonzero_states(self):
+        vectors = (
+            (0xBB07F6B5, 0xFFFFFFFD, 1, 0x000BA05D),
+            (0xACD979CE, 0xFFFFFFFE, 2, 0x0007C03E),
+            (0x5E6CFCE7, 0xFFFFFFFF, 3, 0x0003E01F),
+        )
+        for seed, rejected, expected_symbol, accepted in vectors:
+            with self.subTest(rejected_state=rejected):
+                self.assertEqual(RUNNER.xorshift32(seed), rejected)
+                self.assertEqual(
+                    RUNNER.uniform_below(seed, 4),
+                    (expected_symbol, accepted),
+                )
+
+        # UINT32_MAX is the top of the nonzero domain; its count is divisible by 3.
+        seed = 0x5E6CFCE7
+        self.assertEqual(RUNNER.uniform_below(seed, 3), (0, 0xFFFFFFFF))
+        self.assertEqual(RUNNER.uniform_below(seed, 1), (0, seed))
+
+
+    def test_transcript_accepts_repeated_first_color_across_games(self):
+        plans = RUNNER.make_game_plans("gameover-stale-event", 1, None)
+        self.assertEqual([plan.first for plan in plans], [1, 1])
+        serial = "\n".join((
+            f"SIM_GAME_SEED:{plans[0].seed}",
+            f"SIM_FIRST_COLOR:{plans[0].first}",
+            "SIM_CUE_ON:1:100",
+            "SIM_CUE_OFF:1:2100",
+            "SIM_CUE_STOP_REQUEST:1:2100",
+            "SIM_CUE_GAP_DONE:1:2280",
+            f"SIM_GAME_SEED:{plans[1].seed}",
+            f"SIM_FIRST_COLOR:{plans[1].first}",
+            "SIM_CUE_ON:1:2400",
+            "SIM_CUE_OFF:1:4400",
+            "SIM_CUE_STOP_REQUEST:1:4400",
+            "SIM_CUE_GAP_DONE:1:4580",
+        ))
+        RUNNER.validate_transcript("gameover-stale-event", plans, 2300, serial)
 
     def test_randomized_scenarios_use_generated_button_colors(self):
         first_plan = RUNNER.game_plan(0x12345678, None, 4)
@@ -43,7 +84,11 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertEqual(first_yaml.count("delay: 5200ms"), 2)
 
         stale_plans = RUNNER.make_game_plans("gameover-stale-event", 0x12345678, None)
-        self.assertNotEqual(stale_plans[0].first, stale_plans[1].first)
+        self.assertEqual(stale_plans[1].previous_first, stale_plans[0].first)
+        self.assertEqual(
+            stale_plans[1].symbols,
+            RUNNER.game_plan(stale_plans[1].seed, None, len(stale_plans[1].symbols)).symbols,
+        )
         stale_yaml = RUNNER.render_scenario("gameover-stale-event", stale_plans)
         self.assertIn(f"SIM_GAME_SEED:{stale_plans[1].seed}", stale_yaml)
         self.assertIn(f"SIM_FIRST_COLOR:{stale_plans[1].first}", stale_yaml)
@@ -95,6 +140,13 @@ class WokwiTestRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "held beyond"):
             RUNNER.validate_transcript("first-round", [plan], 250, short_hold)
 
+        reordered_input = early_completion.replace(
+            f"SIM_INPUT_PRESS:{symbol}:7500\nSIM_INPUT_RELEASE:{symbol}:12700",
+            f"SIM_INPUT_RELEASE:{symbol}:12700\nSIM_INPUT_PRESS:{symbol}:7500",
+        )
+        with self.assertRaisesRegex(RuntimeError, "release must follow its press"):
+            RUNNER.validate_transcript("first-round", [plan], 250, reordered_input)
+
         premature_loss = early_completion.replace(
             "SIM_INPUT_READY:2300", "SIM_INPUT_READY:2300\nSIM_GAME_OVER_START"
         )
@@ -141,16 +193,26 @@ class WokwiTestRunnerTests(unittest.TestCase):
         RUNNER.validate_transcript("start-reset", plans, 2300, "\n".join(lines))
 
     def test_state_file_round_trip_and_diagram_override(self):
+        import json
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             state = root / "state.json"
             self.assertIsNone(RUNNER.read_state(state))
+            RUNNER.write_state(state, None)
+            self.assertIsNone(RUNNER.read_state(state))
             RUNNER.write_state(state, 3)
             self.assertEqual(RUNNER.read_state(state), 3)
+            for invalid_color in (True, 1.0, "1"):
+                with self.subTest(invalid_color=invalid_color):
+                    state.write_text(
+                        json.dumps({"version": 1, "previous_first_color": invalid_color}),
+                        encoding="utf-8",
+                    )
+                    with self.assertRaisesRegex(RuntimeError, "invalid Wokwi state file"):
+                        RUNNER.read_state(state)
 
             diagram = root / "diagram.json"
             RUNNER.write_diagram_variant(diagram, 2300)
-            import json
             data = json.loads(diagram.read_text(encoding="utf-8"))
             mock = next(part for part in data["parts"] if part.get("id") == "dfplayer-mock")
             self.assertEqual(mock["attrs"]["completionDelayMs"], "2300")

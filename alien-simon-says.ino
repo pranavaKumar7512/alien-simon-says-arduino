@@ -325,8 +325,7 @@ static void rememberFirstColor(uint8_t color) {
 static void prepareGameSequence(uint32_t seed) {
   // Keep the sequence streaming and unbounded; SIMON's fixed-size object is
   // used below only as a rolling answer verifier.
-  firstGameSymbol = gameSequenceChooseFirst(
-      &sequenceTailState, seed, previousFirstColor);
+  firstGameSymbol = gameSequenceChooseFirst(&sequenceTailState, seed);
 }
 
 static bool prepareAnswerChunk() {
