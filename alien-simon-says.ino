@@ -5,6 +5,10 @@
 #include <Adafruit_NeoPixel.h>
 #include <DFRobotDFPlayerMini.h>
 #include <simon.h>
+#if !defined(WOKWI_SIM)
+#include <Entropy.h>
+#include <avr/wdt.h>
+#endif
 #include "audio_completion_filter.h"
 #include "first_color_journal.h"
 #include "game_sequence.h"
@@ -24,6 +28,7 @@ static const uint16_t DEBOUNCE_MS = 25;
 static const uint16_t CUE_GAP_MS = 180;
 static const uint16_t SEQUENCE_CUE_MS = 2000;
 static const uint32_t CUE_TIMEOUT_MS = 2500UL;
+static const uint16_t ENTROPY_ACQUIRE_TIMEOUT_MS = 1200U;
 static const uint32_t GAME_OVER_MIN_MS = 3000UL;
 static const uint32_t SCORE_PAGE_MS = 3000UL;
 static const uint32_t MAX_COMPLETED_ROUNDS = UINT32_MAX;
@@ -56,8 +61,12 @@ uint32_t completedRounds = 0;
 uint32_t roundLength = 1;
 uint32_t sequenceSeed = 1;
 GameSequenceStream sequenceTailState;
+GameSequenceStream playbackState;
+GameSequenceStream answerState;
 SIMON simonGame;
-uint8_t gameSymbols[SIMON_MAXSIZE];
+uint8_t answerChunkSymbols[SIMON_MAXSIZE];
+uint8_t answerChunkLength = 0;
+uint8_t answerChunkIndex = 0;
 uint8_t firstGameSymbol = 0;
 uint8_t previousFirstColor = FIRST_COLOR_NONE;
 bool firstColorRecordedForGame = false;
@@ -125,9 +134,18 @@ static bool makeSeed(uint32_t *seedOut) {
   xorshift32(nextSimulationSeed);
   return true;
 #else
-  // The SIMON library seeds Arduino's PRNG from micros() when it generates
-  // the physical sequence. Keep a separate timer-derived state for audio picks.
-  *seedOut = micros();
+  // Collect one jitter-derived seed before gameplay, then stop WDT interrupts.
+  Entropy.initialize();
+  const uint32_t entropyStartedAt = millis();
+  while (Entropy.available() == 0U) {
+    if (elapsed(millis(), entropyStartedAt, ENTROPY_ACQUIRE_TIMEOUT_MS)) {
+      wdt_disable();
+      return false;
+    }
+    delay(1);
+  }
+  *seedOut = Entropy.random();
+  wdt_disable();
   if (*seedOut == 0U) *seedOut = 0x6D2B79F5UL;
   return true;
 #endif
@@ -303,44 +321,29 @@ static void rememberFirstColor(uint8_t color) {
   firstColorRecordedForGame = true;
 }
 
-static bool prepareGameSequence(uint32_t seed) {
-#if defined(WOKWI_SIM)
-  // Keep Wokwi host-seeded and replayable; physical builds use SIMON's generator.
+static void prepareGameSequence(uint32_t seed) {
+  // Keep the sequence streaming and unbounded; SIMON's fixed-size object is
+  // used below only as a rolling answer verifier.
   firstGameSymbol = gameSequenceChooseFirst(
       &sequenceTailState, seed, previousFirstColor);
-  gameSymbols[0] = firstGameSymbol;
-  for (uint8_t i = 1U; i < SIMON_MAXSIZE; ++i) {
-    gameSymbols[i] = nextSymbol(sequenceTailState);
-  }
-  return simonGame.setSequence(gameSymbols, SIMON_MAXSIZE);
-#else
-  if (!simonGame.generateSequence(SIMON_MAXSIZE, 0U,
-                                  PLAYER_LED_SYMBOL_COUNT - 1U)) {
-    return false;
-  }
-  simonGame.getSequence(gameSymbols);
+}
 
-  // Preserve the EEPROM rule that consecutive games start on different colors.
-  if (previousFirstColor < PLAYER_LED_SYMBOL_COUNT &&
-      gameSymbols[0] == previousFirstColor) {
-    uint8_t replacement = 1U;
-    while (replacement < SIMON_MAXSIZE &&
-           gameSymbols[replacement] == previousFirstColor) {
-      ++replacement;
-    }
-    if (replacement < SIMON_MAXSIZE) {
-      const uint8_t temporary = gameSymbols[0];
-      gameSymbols[0] = gameSymbols[replacement];
-      gameSymbols[replacement] = temporary;
-    } else {
-      uint8_t alternative = (uint8_t)random(PLAYER_LED_SYMBOL_COUNT - 1U);
-      if (alternative >= previousFirstColor) ++alternative;
-      gameSymbols[0] = alternative;
-    }
+static bool prepareAnswerChunk() {
+  const uint32_t remaining = roundLength - answerIndex;
+  answerChunkLength = remaining < SIMON_MAXSIZE
+      ? (uint8_t)remaining
+      : (uint8_t)SIMON_MAXSIZE;
+  answerChunkIndex = 0U;
+  if (answerChunkLength == 0U) return false;
+
+  for (uint8_t i = 0U; i < answerChunkLength; ++i) {
+    const uint32_t symbolIndex = answerIndex + i;
+    answerChunkSymbols[i] = symbolIndex == 0U
+        ? firstGameSymbol
+        : nextSymbol(answerState);
   }
-  firstGameSymbol = gameSymbols[0];
-  return true;
-#endif
+  simonGame.clear();
+  return simonGame.setSequence(answerChunkSymbols, answerChunkLength);
 }
 
 static void drainAudioEvents(bool allowActiveCueCompletion) {
@@ -459,11 +462,12 @@ static void beginGameOver(uint32_t now, bool playerLost) {
 
 static void beginRound(uint32_t now) {
   roundLength = completedRounds + 1UL;
+  playbackState = sequenceTailState;
+  answerState = sequenceTailState;
   playbackIndex = 0;
   answerIndex = 0;
   pendingAnswer = 0xFF;
-  simonGame.clear();
-  if (!simonGame.setSequence(gameSymbols, (uint8_t)roundLength)) {
+  if (!prepareAnswerChunk()) {
     beginGameOver(now, false);
     return;
   }
@@ -478,20 +482,14 @@ static void beginGame(uint32_t now) {
   uint32_t freshSeed = 0U;
   if (!makeSeed(&freshSeed)) {
     allLedsOff();
-    updateDisplay("SEQUENCE ERROR", "RELEASE & RETRY");
+    updateDisplay("RANDOM NOT READY", "RELEASE & RETRY");
     idlePageStartedAt = millis();
-    Serial.println(F("SEQUENCE_ERROR"));
+    Serial.println(F("ENTROPY_TIMEOUT"));
     return;
   }
   completedRounds = 0;
   sequenceSeed = freshSeed;
-  if (!prepareGameSequence(sequenceSeed)) {
-    allLedsOff();
-    updateDisplay("SEQUENCE ERROR", "RELEASE & RETRY");
-    idlePageStartedAt = millis();
-    Serial.println(F("SEQUENCE_ERROR"));
-    return;
-  }
+  prepareGameSequence(sequenceSeed);
   firstColorRecordedForGame = false;
   allLedsOff();
   Serial.println(F("GAME_START"));
@@ -522,11 +520,10 @@ static void completeCorrectAnswer(uint32_t now) {
   Serial.println(F("SIM_ROUND_COMPLETE"));
 #endif
 
-  // The SIMON library's default sequence capacity limits this experiment to
-  // ten completed rounds; reaching it is not a player loss.
-  if (completedRounds >= SIMON_MAXSIZE) {
-    Serial.println(F("SIMON_SEQUENCE_LIMIT"));
-    beginGameOver(now, false);
+  // Stop safely before the completed-round counter would wrap and corrupt
+  // roundLength; this is only a technical overflow safeguard.
+  if (completedRounds >= MAX_COMPLETED_ROUNDS) {
+    beginGameOver(now, false); // technical exhaustion is not a player loss
     return;
   }
 
@@ -642,7 +639,7 @@ void loop() {
         gameState = WAIT_RELEASE_BEFORE_INPUT;
         break;
       }
-      cueSymbol = gameSymbols[playbackIndex];
+      cueSymbol = playbackIndex == 0U ? firstGameSymbol : nextSymbol(playbackState);
       if (!firstColorRecordedForGame) {
         rememberFirstColor(firstGameSymbol);
 #if defined(WOKWI_SIM)
@@ -740,12 +737,19 @@ void loop() {
         setLed(pendingAnswer, false);
         simonGame.add(pendingAnswer);
         ++answerIndex;
+        ++answerChunkIndex;
         pendingAnswer = 0xFF;
-        if (!simonGame.setSequence(gameSymbols, (uint8_t)answerIndex) ||
+        if (!simonGame.setSequence(answerChunkSymbols, answerChunkIndex) ||
             !simonGame.verify()) {
           failAnswer(now, F("WRONG_ANSWER"));
         } else if (answerIndex == roundLength) {
           completeCorrectAnswer(now);
+        } else if (answerChunkIndex == answerChunkLength) {
+          if (!prepareAnswerChunk()) {
+            beginGameOver(now, false);
+          } else {
+            gameState = WAIT_INPUT;
+          }
         } else {
           gameState = WAIT_INPUT;
         }
