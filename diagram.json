@@ -156,127 +156,127 @@
     [
       "uno:5V",
       "bb1:tp.1",
-      "#1769AA",
+      "#FF0000",
       []
     ],
     [
       "bb1:tp.2",
       "lcd:VCC",
-      "#E60000",
+      "#FF0000",
       []
     ],
     [
       "bb1:tp.3",
       "dfplayer-mock:VCC",
-      "#00AD00",
+      "#FF0000",
       []
     ],
     [
       "uno:GND.1",
       "bb1:bn.1",
-      "#0000E6",
+      "#000000",
       []
     ],
     [
       "bb1:bn.29",
       "lcd:GND",
-      "#E60EA1",
+      "#000000",
       []
     ],
     [
       "bb1:bn.30",
       "dfplayer-mock:GND",
-      "#665012",
+      "#000000",
       []
     ],
     [
       "uno:5V",
       "servo-visual-only:V+",
-      "#009C87",
+      "#FF0000",
       []
     ],
     [
       "uno:GND.1",
       "servo-visual-only:GND",
-      "#78002C",
+      "#000000",
       []
     ],
     [
       "uno:A4",
       "bb1:2t.a",
-      "#55198A",
+      "#00FFFF",
       []
     ],
     [
       "bb1:2t.b",
       "lcd:SDA",
-      "#D17600",
+      "#00FFFF",
       []
     ],
     [
       "uno:A5",
       "bb1:3t.a",
-      "#8F9C00",
+      "#FF00FF",
       []
     ],
     [
       "bb1:3t.b",
       "lcd:SCL",
-      "#CB00E6",
+      "#FF00FF",
       []
     ],
     [
       "dfplayer-mock:TX",
       "bb1:5t.a",
-      "#066613",
+      "#800080",
       []
     ],
     [
       "bb1:5t.b",
       "uno:10",
-      "#E60054",
+      "#800080",
       []
     ],
     [
       "uno:9",
       "bb1:7t.a",
-      "#0E68E6",
+      "#FFA500",
       []
     ],
     [
       "bb1:7t.b",
       "servo-visual-only:PWM",
-      "#9C2909",
+      "#FFA500",
       []
     ],
     [
       "dfplayer-mock:SPK1",
       "bb1:11t.a",
-      "#0B9EBF",
+      "#A52A2A",
       []
     ],
     [
       "bb1:11t.b",
       "visual-speaker:SPK1",
-      "#8A0869",
+      "#A52A2A",
       []
     ],
     [
       "dfplayer-mock:SPK2",
       "bb1:13t.a",
-      "#7849E6",
+      "#D2B48C",
       []
     ],
     [
       "bb1:13t.b",
       "visual-speaker:SPK2",
-      "#B43DBF",
+      "#D2B48C",
       []
     ],
     [
       "uno:11",
       "bb1:1t.a",
-      "#D1437C",
+      "#808080",
       []
     ],
     [
@@ -298,13 +298,13 @@
     [
       "bb1:1b.g",
       "dfplayer-mock:RX",
-      "#00378A",
+      "#808080",
       []
     ],
     [
       "uno:6",
       "bb1:6t.a",
-      "#662912",
+      "#FF0000",
       []
     ],
     [
@@ -342,13 +342,13 @@
     [
       "bb1:4b.j",
       "bb1:10b.j",
-      "#AD8E37",
+      "#000000",
       []
     ],
     [
       "uno:7",
       "bb1:12t.a",
-      "#AD6537",
+      "#00FF00",
       []
     ],
     [
@@ -387,7 +387,7 @@
     [
       "uno:8",
       "bb1:18t.a",
-      "#657826",
+      "#0000FF",
       []
     ],
     [
@@ -425,13 +425,13 @@
     [
       "bb1:10b.j",
       "bb1:16b.j",
-      "#099C5C",
+      "#000000",
       []
     ],
     [
       "uno:A0",
       "bb1:24t.a",
-      "#E65149",
+      "#FFFF00",
       []
     ],
     [
@@ -470,7 +470,7 @@
     [
       "uno:A1",
       "bb1:30t.a",
-      "#66214B",
+      "#FFFFFF",
       []
     ],
     [
@@ -508,91 +508,91 @@
     [
       "bb1:16b.j",
       "bb1:22b.j",
-      "#589C1C",
+      "#000000",
       []
     ],
     [
       "bb1:22b.j",
       "bb1:28b.j",
-      "#4985E6",
+      "#000000",
       []
     ],
     [
       "bb1:28b.j",
       "bb1:bn.28",
-      "#00FFFF",
+      "#000000",
       []
     ],
     [
       "uno:2",
       "neopixel-red:DIN",
-      "#9060B0",
+      "#FFFFFF",
       []
     ],
     [
       "neopixel-red:DOUT",
       "neopixel-green:DIN",
-      "#F0D0F0",
+      "#FFFFFF",
       []
     ],
     [
       "neopixel-green:DOUT",
       "neopixel-blue:DIN",
-      "#F0C0A0",
+      "#FFFFFF",
       []
     ],
     [
       "neopixel-blue:DOUT",
       "neopixel-yellow:DIN",
-      "#B07080",
+      "#FFFFFF",
       []
     ],
     [
       "neopixel-red:VDD",
       "bb1:tp.4",
-      "#808060",
+      "#FF0000",
       []
     ],
     [
       "neopixel-red:VSS",
       "bb1:bn.28",
-      "#303020",
+      "#000000",
       []
     ],
     [
       "neopixel-green:VDD",
       "bb1:tp.4",
-      "#D0F0B0",
+      "#FF0000",
       []
     ],
     [
       "neopixel-green:VSS",
       "bb1:bn.28",
-      "#F0F030",
+      "#000000",
       []
     ],
     [
       "neopixel-blue:VDD",
       "bb1:tp.4",
-      "#30F090",
+      "#FF0000",
       []
     ],
     [
       "neopixel-blue:VSS",
       "bb1:bn.28",
-      "#C0F0F0",
+      "#000000",
       []
     ],
     [
       "neopixel-yellow:VDD",
       "bb1:tp.4",
-      "#A0F030",
+      "#FF0000",
       []
     ],
     [
       "neopixel-yellow:VSS",
       "bb1:bn.28",
-      "#F090D0",
+      "#000000",
       []
     ]
   ],

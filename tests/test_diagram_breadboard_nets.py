@@ -23,50 +23,50 @@ def connection(left, right, color="", attrs=()):
 
 
 WIRE_COLORS = {
-    ("uno:5V", "bb1:tp.1"): "#1769AA",
-    ("bb1:tp.2", "lcd:VCC"): "#E60000",
-    ("bb1:tp.3", "dfplayer-mock:VCC"): "#00AD00",
-    ("uno:GND.1", "bb1:bn.1"): "#0000E6",
-    ("bb1:bn.29", "lcd:GND"): "#E60EA1",
-    ("bb1:bn.30", "dfplayer-mock:GND"): "#665012",
-    ("uno:5V", "servo-visual-only:V+"): "#009C87",
-    ("uno:GND.1", "servo-visual-only:GND"): "#78002C",
-    ("uno:A4", "bb1:2t.a"): "#55198A",
-    ("bb1:2t.b", "lcd:SDA"): "#D17600",
-    ("uno:A5", "bb1:3t.a"): "#8F9C00",
-    ("bb1:3t.b", "lcd:SCL"): "#CB00E6",
-    ("dfplayer-mock:TX", "bb1:5t.a"): "#066613",
-    ("bb1:5t.b", "uno:10"): "#E60054",
-    ("uno:9", "bb1:7t.a"): "#0E68E6",
-    ("bb1:7t.b", "servo-visual-only:PWM"): "#9C2909",
-    ("dfplayer-mock:SPK1", "bb1:11t.a"): "#0B9EBF",
-    ("bb1:11t.b", "visual-speaker:SPK1"): "#8A0869",
-    ("dfplayer-mock:SPK2", "bb1:13t.a"): "#7849E6",
-    ("bb1:13t.b", "visual-speaker:SPK2"): "#B43DBF",
-    ("uno:11", "bb1:1t.a"): "#D1437C",
-    ("bb1:1b.g", "dfplayer-mock:RX"): "#00378A",
-    ("uno:2", "neopixel-red:DIN"): "#9060B0",
-    ("neopixel-red:DOUT", "neopixel-green:DIN"): "#F0D0F0",
-    ("neopixel-green:DOUT", "neopixel-blue:DIN"): "#F0C0A0",
-    ("neopixel-blue:DOUT", "neopixel-yellow:DIN"): "#B07080",
-    ("neopixel-red:VDD", "bb1:tp.4"): "#808060",
-    ("neopixel-red:VSS", "bb1:bn.28"): "#303020",
-    ("neopixel-green:VDD", "bb1:tp.4"): "#D0F0B0",
-    ("neopixel-green:VSS", "bb1:bn.28"): "#F0F030",
-    ("neopixel-blue:VDD", "bb1:tp.4"): "#30F090",
-    ("neopixel-blue:VSS", "bb1:bn.28"): "#C0F0F0",
-    ("neopixel-yellow:VDD", "bb1:tp.4"): "#A0F030",
-    ("neopixel-yellow:VSS", "bb1:bn.28"): "#F090D0",
-    ("uno:6", "bb1:6t.a"): "#662912",
-    ("bb1:4b.j", "bb1:10b.j"): "#AD8E37",
-    ("uno:7", "bb1:12t.a"): "#AD6537",
-    ("uno:8", "bb1:18t.a"): "#657826",
-    ("bb1:10b.j", "bb1:16b.j"): "#099C5C",
-    ("uno:A0", "bb1:24t.a"): "#E65149",
-    ("uno:A1", "bb1:30t.a"): "#66214B",
-    ("bb1:16b.j", "bb1:22b.j"): "#589C1C",
-    ("bb1:22b.j", "bb1:28b.j"): "#4985E6",
-    ("bb1:28b.j", "bb1:bn.28"): "#00FFFF",
+    ("uno:5V", "bb1:tp.1"): "#FF0000",
+    ("bb1:tp.2", "lcd:VCC"): "#FF0000",
+    ("bb1:tp.3", "dfplayer-mock:VCC"): "#FF0000",
+    ("uno:GND.1", "bb1:bn.1"): "#000000",
+    ("bb1:bn.29", "lcd:GND"): "#000000",
+    ("bb1:bn.30", "dfplayer-mock:GND"): "#000000",
+    ("uno:5V", "servo-visual-only:V+"): "#FF0000",
+    ("uno:GND.1", "servo-visual-only:GND"): "#000000",
+    ("uno:A4", "bb1:2t.a"): "#00FFFF",
+    ("bb1:2t.b", "lcd:SDA"): "#00FFFF",
+    ("uno:A5", "bb1:3t.a"): "#FF00FF",
+    ("bb1:3t.b", "lcd:SCL"): "#FF00FF",
+    ("dfplayer-mock:TX", "bb1:5t.a"): "#800080",
+    ("bb1:5t.b", "uno:10"): "#800080",
+    ("uno:9", "bb1:7t.a"): "#FFA500",
+    ("bb1:7t.b", "servo-visual-only:PWM"): "#FFA500",
+    ("dfplayer-mock:SPK1", "bb1:11t.a"): "#A52A2A",
+    ("bb1:11t.b", "visual-speaker:SPK1"): "#A52A2A",
+    ("dfplayer-mock:SPK2", "bb1:13t.a"): "#D2B48C",
+    ("bb1:13t.b", "visual-speaker:SPK2"): "#D2B48C",
+    ("uno:11", "bb1:1t.a"): "#808080",
+    ("bb1:1b.g", "dfplayer-mock:RX"): "#808080",
+    ("uno:2", "neopixel-red:DIN"): "#FFFFFF",
+    ("neopixel-red:DOUT", "neopixel-green:DIN"): "#FFFFFF",
+    ("neopixel-green:DOUT", "neopixel-blue:DIN"): "#FFFFFF",
+    ("neopixel-blue:DOUT", "neopixel-yellow:DIN"): "#FFFFFF",
+    ("neopixel-red:VDD", "bb1:tp.4"): "#FF0000",
+    ("neopixel-red:VSS", "bb1:bn.28"): "#000000",
+    ("neopixel-green:VDD", "bb1:tp.4"): "#FF0000",
+    ("neopixel-green:VSS", "bb1:bn.28"): "#000000",
+    ("neopixel-blue:VDD", "bb1:tp.4"): "#FF0000",
+    ("neopixel-blue:VSS", "bb1:bn.28"): "#000000",
+    ("neopixel-yellow:VDD", "bb1:tp.4"): "#FF0000",
+    ("neopixel-yellow:VSS", "bb1:bn.28"): "#000000",
+    ("uno:6", "bb1:6t.a"): "#FF0000",
+    ("bb1:4b.j", "bb1:10b.j"): "#000000",
+    ("uno:7", "bb1:12t.a"): "#00FF00",
+    ("uno:8", "bb1:18t.a"): "#0000FF",
+    ("bb1:10b.j", "bb1:16b.j"): "#000000",
+    ("uno:A0", "bb1:24t.a"): "#FFFF00",
+    ("uno:A1", "bb1:30t.a"): "#FFFFFF",
+    ("bb1:16b.j", "bb1:22b.j"): "#000000",
+    ("bb1:22b.j", "bb1:28b.j"): "#000000",
+    ("bb1:28b.j", "bb1:bn.28"): "#000000",
 }
 
 
@@ -233,37 +233,94 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         self.assertTrue(all(isinstance(item[3], list) for item in self.connections))
         self.assertFalse(any(item[3] == "$bb" for item in self.connections))
 
-    def test_visible_wire_colors_are_unique_and_well_separated_per_wire(self):
-        visible_colors = [item[2] for item in self.connection_tuples if item[2]]
-        self.assertEqual(len(visible_colors), 44)
-        self.assertEqual(len(set(visible_colors)), 44)
+    def test_visible_wire_colors_follow_electrical_function(self):
         self.assertEqual(len(WIRE_COLORS), 44)
-        self.assertEqual(set(visible_colors), set(WIRE_COLORS.values()))
+        visible = {
+            (left, right): color
+            for left, right, color, _attrs in self.connection_tuples
+            if color
+        }
 
-        def lab_coordinates(hex_color):
-            rgb = [int(hex_color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
+        def assert_color(expected, *endpoints):
+            for endpoint in endpoints:
+                with self.subTest(endpoint=endpoint):
+                    self.assertEqual(visible[endpoint], expected)
 
-            def linearize(value):
-                return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-
-            red, green, blue = map(linearize, rgb)
-            x = (0.4124564 * red + 0.3575761 * green + 0.1804375 * blue) / 0.95047
-            y = 0.2126729 * red + 0.7151522 * green + 0.0721750 * blue
-            z = (0.0193339 * red + 0.1191920 * green + 0.9503041 * blue) / 1.08883
-
-            def pivot(value):
-                return value ** (1 / 3) if value > 0.008856451679 else 7.787037037 * value + 16 / 116
-
-            fx, fy, fz = map(pivot, (x, y, z))
-            return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
-
-        labs = [lab_coordinates(color) for color in visible_colors]
-        min_delta_e = min(
-            sum((left - right) ** 2 for left, right in zip(labs[i], labs[j])) ** 0.5
-            for i in range(len(labs))
-            for j in range(i)
+        assert_color(
+            "#FF0000",
+            ("uno:5V", "bb1:tp.1"),
+            ("bb1:tp.2", "lcd:VCC"),
+            ("bb1:tp.3", "dfplayer-mock:VCC"),
+            ("uno:5V", "servo-visual-only:V+"),
+            ("neopixel-red:VDD", "bb1:tp.4"),
+            ("neopixel-green:VDD", "bb1:tp.4"),
+            ("neopixel-blue:VDD", "bb1:tp.4"),
+            ("neopixel-yellow:VDD", "bb1:tp.4"),
         )
-        self.assertGreaterEqual(min_delta_e, 20.0)
+        assert_color(
+            "#000000",
+            ("uno:GND.1", "bb1:bn.1"),
+            ("bb1:bn.29", "lcd:GND"),
+            ("bb1:bn.30", "dfplayer-mock:GND"),
+            ("uno:GND.1", "servo-visual-only:GND"),
+            ("neopixel-red:VSS", "bb1:bn.28"),
+            ("neopixel-green:VSS", "bb1:bn.28"),
+            ("neopixel-blue:VSS", "bb1:bn.28"),
+            ("neopixel-yellow:VSS", "bb1:bn.28"),
+            ("bb1:4b.j", "bb1:10b.j"),
+            ("bb1:10b.j", "bb1:16b.j"),
+            ("bb1:16b.j", "bb1:22b.j"),
+            ("bb1:22b.j", "bb1:28b.j"),
+            ("bb1:28b.j", "bb1:bn.28"),
+        )
+        assert_color(
+            "#FFFFFF",
+            ("uno:2", "neopixel-red:DIN"),
+            ("neopixel-red:DOUT", "neopixel-green:DIN"),
+            ("neopixel-green:DOUT", "neopixel-blue:DIN"),
+            ("neopixel-blue:DOUT", "neopixel-yellow:DIN"),
+            ("uno:A1", "bb1:30t.a"),
+        )
+        assert_color(
+            "#00FFFF",
+            ("uno:A4", "bb1:2t.a"),
+            ("bb1:2t.b", "lcd:SDA"),
+        )
+        assert_color(
+            "#FF00FF",
+            ("uno:A5", "bb1:3t.a"),
+            ("bb1:3t.b", "lcd:SCL"),
+        )
+        assert_color(
+            "#800080",
+            ("dfplayer-mock:TX", "bb1:5t.a"),
+            ("bb1:5t.b", "uno:10"),
+        )
+        assert_color(
+            "#808080",
+            ("uno:11", "bb1:1t.a"),
+            ("bb1:1b.g", "dfplayer-mock:RX"),
+        )
+        assert_color(
+            "#FFA500",
+            ("uno:9", "bb1:7t.a"),
+            ("bb1:7t.b", "servo-visual-only:PWM"),
+        )
+        assert_color(
+            "#A52A2A",
+            ("dfplayer-mock:SPK1", "bb1:11t.a"),
+            ("bb1:11t.b", "visual-speaker:SPK1"),
+        )
+        assert_color(
+            "#D2B48C",
+            ("dfplayer-mock:SPK2", "bb1:13t.a"),
+            ("bb1:13t.b", "visual-speaker:SPK2"),
+        )
+        assert_color("#FF0000", ("uno:6", "bb1:6t.a"))
+        assert_color("#00FF00", ("uno:7", "bb1:12t.a"))
+        assert_color("#0000FF", ("uno:8", "bb1:18t.a"))
+        assert_color("#FFFF00", ("uno:A0", "bb1:24t.a"))
+
 
     def test_all_board_mounted_components_use_exact_editor_pin_holes(self):
         for button_id, (_gpio, contact1, contact2, _rail, color) in BUTTONS.items():
