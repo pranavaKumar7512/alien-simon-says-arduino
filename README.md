@@ -15,9 +15,10 @@ A complete Simon Says sketch for the confirmed **Arduino Uno R3**, with four gen
 - Rob Tillaart's SIMON library verifies player answers in bounded chunks of up to ten symbols; the game sequence itself streams beyond that chunk size.
 - Physical seeds come from the AVR Arduino Entropy library's watchdog/Timer1 timing jitter; Wokwi uses host-injected replay seeds.
 - `servo_celebration_config.h` — shared Game Over servo angle/timing settings and Timer1 pulse conversion for physical and Wokwi builds.
-- `sdcard/mp3/0001.mp3`–`0004.mp3` — card-ready button cues.
-- `assets/source-sound-alien1-hq.mp3` — attributed source sample.
-- `SHA256SUMS` — verified SHA-256 hashes for all five copied audio assets.
+- `audio_track_config.h` — shared cue-track range and dedicated player-loss audio track selection.
+- `sdcard/mp3/0001.mp3`–`0004.mp3` — card-ready, generated classic Simon-style tone cues (not recordings from an original Simon game); `0005.mp3` is the generated losing sound.
+- `assets/source-sound-alien1-hq.mp3` — retained, attributed alien source sample; it is not used by the generated cues.
+- `SHA256SUMS` — verified SHA-256 hashes for the five game cues and retained source sample.
 - `chips/grove-jhd1804.chip.c` / `.chip.json` — local I2C/framebuffer model for the specified Grove/JHD1804 LCD, not a substitute display.
 - `chips/dfplayer-mock.chip.c` / `.chip.json` — UART protocol mock for volume, track, stop, and simulated track-finished events; it does not decode or play the copied MP3 files.
 - `chips/visual-speaker.chip.c` / `.chip.json` — separate two-terminal component named `8 Ω / 0.5 W — no playback`; it is a visual pinout only.
@@ -51,6 +52,8 @@ wokwi-cli lint --warnings-as-errors .
 gcc -std=c99 -Wno-attributes tests/test_grove_jhd1804.c -o build/test_grove_jhd1804 && build/test_grove_jhd1804
 gcc -std=c99 -Wno-attributes tests/test_dfplayer_mock.c -o build/test_dfplayer_mock && build/test_dfplayer_mock
 gcc -std=c99 tests/test_audio_completion_filter.c -o build/test_audio_completion_filter && build/test_audio_completion_filter
+gcc -std=c99 tests/test_game_over_audio_config.c -o build/test_game_over_audio_config && build/test_game_over_audio_config
+gcc -std=c99 tests/test_game_over_audio_config.c -o build/test_game_over_audio_config && build/test_game_over_audio_config
 gcc -std=c99 tests/test_player_led_feedback.c -o build/test_player_led_feedback && build/test_player_led_feedback
 gcc -std=c99 tests/test_first_color_journal.c -o build/test_first_color_journal && build/test_first_color_journal
 gcc -std=c99 tests/test_game_sequence.c -o build/test_game_sequence && build/test_game_sequence
@@ -80,7 +83,7 @@ python3 scripts/run-wokwi-tests.py --scenario all
 python3 scripts/run-wokwi-tests.py --scenario first-round
 ```
 
-By default, each randomized test launch gets a nonzero seed from the host OS random source; the runner logs the seed plus prior-color metadata. The runner generates each scenario cue/button from the same xorshift32 sequence as firmware, so randomized colors do not break correct-answer tests. `first-round` checks that early audio completion does not shorten the 2 s light and that the player can wait 5.2 s before pressing and hold the debounced answer for 5.2 s before release; the other scenarios use a longer mock completion delay to verify the cue-boundary Stop, Game Over event draining, successful rounds without servo extension, and loss-triggered servo motion. The runner checks cue-on/off/Stop/gap timestamps, parses the serial transcript, and stores per-run YAML, diagram, transcript, and JSON manifest under `build/wokwi-tests/`. Cross-launch Wokwi previous-color state lives in the local `.wokwi-sequence-state.json`; running `wokwi-cli` directly bypasses this persistence wrapper. Use the printed `--seed` and `--previous-first-color` values with `--no-persist` to replay a failure. A Wokwi CI-minute quota error prevents runtime verification; only a successful scenario completion counts as runtime evidence.
+By default, each randomized test launch gets a nonzero seed from the host OS random source; the runner logs the seed plus prior-color metadata. The runner generates each scenario cue/button from the same xorshift32 sequence as firmware, so randomized colors do not break correct-answer tests. `first-round` checks that early audio completion does not shorten the 2 s light and that the player can wait 5.2 s before pressing and hold the debounced answer for 5.2 s before release; `chunk-boundary` uses a Wokwi-only test build to start at round 11, enter all eleven cues, and verify a correct answer across the SIMON ten-symbol chunk boundary. The other scenarios use a longer mock completion delay to verify Game Over event draining, successful rounds without servo extension, and loss-triggered servo motion. The runner checks cue-on/off/Stop/gap timestamps and input/event ordering, stores per-run YAML/diagram/transcript/manifests under `build/wokwi-tests/`, and builds scenario firmware separately under `build/wokwi-tests/firmware/<scenario>-<seed>-prev-<color|none>` (selected with `--elf`) so test images never replace the interactive `build/wokwi` firmware. Cross-launch Wokwi previous-color state lives in the local `.wokwi-sequence-state.json`; running `wokwi-cli` directly bypasses this persistence wrapper. Use the printed replay command, which uses the script's absolute path, to reproduce a failure. A Wokwi CI-minute quota error can prevent runtime verification; only a successful scenario completion counts as runtime evidence.
 
 ### SIMON library and uncapped rounds
 
@@ -88,7 +91,7 @@ Both builds use Rob Tillaart's [SIMON library 0.1.5](https://github.com/RobTilla
 
 Physical sequence seeds are collected from the AVR Arduino Entropy library's watchdog/Timer1 timing jitter when Start is pressed. The sketch waits up to 1.2 seconds for one 32-bit pool value and then disables the watchdog to avoid gameplay-time ISR interference with SoftwareSerial. If acquisition times out, it displays `RANDOM NOT READY`; no extra RNG module is needed. This jitter-derived source is not certified or cryptographic, and it has not been measured on the physical Uno. The library's `generateSequence()` method is intentionally not used for the whole game: it produces at most ten symbols and reseeds from `micros()`. The sketch instead streams its own sequence and uses SIMON only for bounded answer verification.
 
-Both physical and Wokwi builds use the same with-replacement pseudo-random sequence. The bounded mapper assigns the four colors equal-sized accepted ranges (25% each when xorshift32's nonzero states are modeled as uniform); output is deterministic from the selected seed, not true statistical or cryptographic independence. Repeats are allowed; neither a four-color bag nor the EEPROM first-color journal constrains a draw. The journal still records each game's first cue. Physical games use the entropy-library seed; Wokwi uses logged host-injected seeds. Ordinary Wokwi builds get a fresh host seed at build time, while test runs inject explicit replayable seeds. The SIMON library handles answer checking only; LEDs, buttons, round progression, audio, scoring, LCD, and servo behavior remain in the sketch.
+Both physical and Wokwi builds use the same with-replacement pseudo-random sequence. The bounded mapper rejects the top three xorshift32 states before modulo mapping. Although the accepted first-draw values divide evenly among four colors, xorshift32 cycles only its nonzero states and a rejection advances the same deterministic stream; a one-state-scale seed-space skew remains, so strict IID or exact 25.000...% probability is not claimed. Repeats are allowed; neither a four-color bag nor the EEPROM first-color journal constrains a draw. The journal still records each game's first cue. Physical games use the entropy-library seed; Wokwi uses logged host-injected seeds. Ordinary Wokwi builds get a fresh host seed at build time, while test runs inject explicit replayable seeds. The SIMON library handles answer checking only; LEDs, buttons, round progression, audio, scoring, LCD, and servo behavior remain in the sketch.
 
 ### Simulation/physical behavior
 
@@ -97,7 +100,7 @@ Both physical and Wokwi builds use the same with-replacement pseudo-random seque
 - Four chained NeoPixel strips contain sixteen addressable LEDs total: indices 0–3 are red, 4–7 green, 8–11 blue, and 12–15 yellow. A cue or answer lights all four pixels in its matching group and clears the other groups. Sequence cues stay lit for 2,000 ms from cue-on; an early natural audio-finished event does not shorten the light. At that deadline the firmware issues an idempotent DFPlayer Stop request to bound playback (harmless if the track already completed), then all strips remain off for the existing 180 ms gap. The physical module's exact Stop latency is not validated. In Wokwi, matching track numbers go to the DFPlayer mock; the mock has no MP3 decoder and plays no sound. During answer entry, exactly one debounced play-button press lights its matching four-pixel group while held; that group turns off on release before the answer is evaluated. The 25 ms debounce, chord detection, and release-to-submit behavior remain. Players may wait indefinitely before answering and may hold a debounced answer indefinitely before releasing it. Held buttons during cue playback or the wait-for-release-before-input phase do not light a group. Two or more simultaneously debounced play buttons fail the run.
 - The four controls are identified by physical position from left to right as Buttons 1–4; their casing colors have no gameplay meaning. The initial map is Button 1→Red, 2→Green, 3→Blue, 4→Yellow. After each three successfully completed rounds (3→4, 6→7, 9→10, …), a seed-derived shuffle creates a new one-to-one map for the next block; the cue sequence is unchanged, but cue playback and held-button feedback light the mapped button-position group in that cue's assigned color, with the LEDs dark between events. Repeating the exact previous full map is rejected, though individual assignments may repeat. A new game or restart restores the initial map. After the existing celebration audio finishes, the firmware lights all four button-position LED groups simultaneously, each group showing its assigned cue color, and holds the complete map illuminated for 5.5 seconds before the next round. The LCD retains the existing main-branch pages and never displays the mapping. The separate mapping PRNG does not affect cue generation, and the Wokwi `button-remap` scenario verifies replayable maps and translated inputs. A wrong answer, chord, or the 32-bit technical round counter reaching its maximum ends the run.
 - The final score is stored in Uno EEPROM when it improves the best score. Idle keeps `PRESS START` on the first row and alternates `YOUR` / `BEST` score values on the second row every three seconds. EEPROM behavior still needs a physical power-cycle check.
-- Game Over begins a random one of the four physical tracks (or the matching mock track command). The screen remains visible for at least three seconds and, after a player loss, until the servo's configured return allowance has elapsed; the firmware then sends Stop before returning to score pages. This is three seconds on the physical configuration and six seconds in Wokwi. Technical counter exhaustion ends the game without servo motion because it is not a player loss. Completion events are drained throughout Game Over.
+- Game Over after a player loss plays physical track 5 (`/mp3/0005.mp3`) or sends mock track command 5. Other Game Over exits (the technical round-counter safeguard) and successful-round celebrations choose randomly from physical tracks 1–4. The screen remains visible for at least three seconds and, after a player loss, until the servo's configured return allowance has elapsed; the firmware then sends Stop before returning to score pages. This is three seconds on the physical configuration and six seconds in Wokwi. Technical counter exhaustion ends the game without servo motion because it is not a player loss. Completion events are drained throughout Game Over.
 - Successful rounds 3, 6, 9, … still play a random celebration audio cue, but do not move the servo. The servo extends only after a player loses through a wrong answer or chord, then returns to 0°. In Wokwi, its target changes to 180° for a 3-second hold, then to 0° for a separate 3-second return allowance. Physical builds retain the conservative, unverified settings of 90° extend, 0° retract, a 1-second hold, and a 1-second return allowance until the real FS5106B linkage endpoints and supply are verified. These are command-based intervals that include travel time; neither simulation nor elapsed time provides position feedback. The [Wokwi servo reference](https://docs.wokwi.com/parts/wokwi-servo) documents its range as 0°–180° with hard stops. Do not widen physical settings until the actual mechanism/load and supply are checked.
 - There is no practical round cap. The firmware stops only if its 32-bit completed-round counter reaches `UINT32_MAX`, a technical overflow safeguard rather than a gameplay limit. SIMON's ten-symbol array is reused as a verifier buffer and does not limit the game sequence.
 
@@ -129,9 +132,10 @@ The MP3 files belong in `/mp3/` at the root of a FAT32 microSD/TF card:
 /mp3/0002.mp3
 /mp3/0003.mp3
 /mp3/0004.mp3
+/mp3/0005.mp3
 ```
 
-`0001`–`0004` map respectively to red, green, blue, and yellow. The physical speaker connects across the module's **SPK1 and SPK2 speaker outputs** (one lead per output). Never connect a speaker terminal to an Uno GPIO or GND.
+`0001`–`0004` map respectively to red, green, blue, and yellow; `0005` plays after a player loss. The physical speaker connects across the module's **SPK1 and SPK2 speaker outputs** (one lead per output). Never connect a speaker terminal to an Uno GPIO or GND.
 
 ## Physical wiring — unpowered stages
 
@@ -273,7 +277,7 @@ unpowered until the module output/load ratings are verified; Wokwi mock rows
 11 and 13 do not approve the physical speaker path.
 ```
 
-Format/copy the card as required by the module, then place the four files at `/mp3/0001.mp3`–`0004.mp3` on the card. Begin at volume 3. The actual MP3-TF-16P clone/card compatibility and current budget are not confirmed by simulation.
+Format/copy the card as required by the module, then place `/mp3/0001.mp3`–`0005.mp3` on the card. Begin at volume 3. The actual MP3-TF-16P clone/card compatibility and current budget are not confirmed by simulation.
 
 ### Step 5 — servo signal and isolated motor supply
 
@@ -320,15 +324,18 @@ Never feed external adapter +5 V to Uno +5 V or the barrel jack while USB is att
 6. **Mechanism/load check:** install/tune linkage only with a safe clear zone and verified load/current/travel. Confirm the servo stays still after successful rounds 3/6/9, then extends and retracts only after a player loss; verify the configured return allowance before Game Over exits.
 7. **Full game:** validate a response delayed beyond five seconds, a debounced press held beyond five seconds before release, wrong answer/chord handling, score accounting, best-score persistence, audio overlap protection, and repeated power cycles. There is no player-response timeout. Record any changes to provisional servo constants and hardware details here.
 
-## Audio attribution
+## Audio cues
 
-“sound-alien1” by **zippi1**, https://freesound.org/people/zippi1/sounds/18027/, licensed **CC BY-NC 4.0**: https://creativecommons.org/licenses/by-nc/4.0/ . The project includes the source file `assets/source-sound-alien1-hq.mp3` and four pitch-shifted modifications for the game cues:
+The four card-ready MP3s are generated, short electronic tones in a classic Simon-style sequence. They are newly synthesized cues, not recordings or extracted audio from an original Simon game. Each has a brief fade to avoid clicks:
 
-| File | Button/LED | Pitch modification |
+| File | Button/LED | Generated fundamental |
 |---|---|---:|
-| `0001.mp3` | Red pixel/button | −3 semitones |
-| `0002.mp3` | Green pixel/button | −1 semitone |
-| `0003.mp3` | Blue pixel/button | +1 semitone |
-| `0004.mp3` | Yellow pixel/button | +3 semitones |
+| `0001.mp3` | Red pixel/button | 523.25 Hz (C5) |
+| `0002.mp3` | Green pixel/button | 659.25 Hz (E5) |
+| `0003.mp3` | Blue pixel/button | 783.99 Hz (G5) |
+| `0004.mp3` | Yellow pixel/button | 1046.50 Hz (C6) |
+| `0005.mp3` | Player loss / wrong answer | Descending two-part electronic tone |
 
-Attribution is retained in this README beside the audio assets.
+On a player loss (wrong answer or chord), firmware plays `/mp3/0005.mp3`; the technical round-counter safeguard does not use the loss sound. Successful-round celebration cues still choose randomly among tracks 1–4. The Wokwi DFPlayer mock does not read or play any MP3.
+
+The previously used “sound-alien1” sample by **zippi1** remains at `assets/source-sound-alien1-hq.mp3`; it is not used to make these tones. Source: https://freesound.org/people/zippi1/sounds/18027/, licensed **CC BY-NC 4.0**: https://creativecommons.org/licenses/by-nc/4.0/ .

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "wokwi-api.h"
+#include "../audio_track_config.h"
 
 #define DFPLAYER_FRAME_SIZE 10
 #define DFPLAYER_EVENT_PLAY_FINISHED 0x3D
@@ -86,8 +87,8 @@ static void handle_command(const uint8_t frame[DFPLAYER_FRAME_SIZE]) {
       if (frame[5] == 0 && frame[6] <= 30) current_volume = frame[6];
       break;
 
-    case 0x12: // playMp3Folder(1..4)
-      if (frame[5] == 0 && frame[6] >= 1 && frame[6] <= 4) {
+    case 0x12: // playMp3Folder(1..AUDIO_MAX_TRACK)
+      if (frame[5] == 0 && frame[6] >= AUDIO_FIRST_CUE_TRACK && frame[6] <= AUDIO_MAX_TRACK) {
         cancel_completion();
         current_track = frame[6];
         last_track = current_track;

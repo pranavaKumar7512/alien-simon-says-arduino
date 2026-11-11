@@ -8,6 +8,7 @@ import json
 import os
 import re
 import secrets
+import shlex
 import shutil
 import subprocess
 import sys
@@ -20,10 +21,14 @@ ROOT = Path(__file__).resolve().parents[1]
 STATE_DEFAULT = ROOT / ".wokwi-sequence-state.json"
 COLORS = ("red", "green", "blue", "yellow")
 BUTTON_PARTS_BY_POSITION = tuple(f"button-{color}" for color in COLORS)
+BUTTONS = BUTTON_PARTS_BY_POSITION
 BUTTON_MAPPING_SEED_SALT = 0xB5297A4D
 BUTTON_MAPPING_FALLBACK_SEED = 0x68E31DA4
 BUTTON_MAPPING_DEMO_MS = 5500
-SCENARIOS = ("first-round", "gameover-stale-event", "servo-only-after-loss", "start-reset", "button-remap")
+SCENARIOS = (
+    "first-round", "gameover-stale-event", "servo-only-after-loss", "start-reset",
+    "button-remap", "chunk-boundary",
+)
 UNSET = object()
 TIMEOUT_MS = {
     "first-round": 20000,
@@ -31,13 +36,15 @@ TIMEOUT_MS = {
     "servo-only-after-loss": 45000,
     "start-reset": 45000,
     "button-remap": 60000,
+    "chunk-boundary": 45000,
 }
 MOCK_DELAY_MS = {
     "first-round": 250,  # natural audio completion must not shorten the 2 s light cue
-    "gameover-stale-event": 2300,  # sequence audio is still active at the 2 s stop boundary
+    "gameover-stale-event": 2300,  # completion event must be drained during Game Over
     "servo-only-after-loss": 2300,
     "start-reset": 2300,
     "button-remap": 2300,
+    "chunk-boundary": 250,
 }
 
 
@@ -180,6 +187,12 @@ def render_scenario(name: str, plans: list[GamePlan]) -> str:
             wait_step("SIM_ROUND_COMPLETE"),
         ))
 
+    elif name == "chunk-boundary":
+        steps.append(wait_step("SIM_INPUT_READY"))
+        for symbol in plans[0].symbols:
+            press_and_release(steps, BUTTONS[symbol])
+        steps.append(wait_step("SIM_ROUND_COMPLETE"))
+
     elif name == "gameover-stale-event":
         first = plans[0].first
         wrong = (first + 1) % len(COLORS)
@@ -282,6 +295,8 @@ def expected_cues(name: str, plans: list[GamePlan]) -> list[int]:
         return [plans[0].first, plans[1].first]
     if name == "start-reset":
         return [plan.first for plan in plans]
+    if name == "chunk-boundary":
+        return list(plans[0].symbols)
     if name in ("servo-only-after-loss", "button-remap"):
         sequence = plans[0].symbols
         return [symbol for round_length in range(1, 5) for symbol in sequence[:round_length]]
@@ -321,8 +336,12 @@ def read_state(path: Path) -> int | None:
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
+        if type(data) is not dict:
+            raise ValueError("state must be a JSON object")
+        version = data.get("version")
         color = data["previous_first_color"]
-        if data.get("version") != 1 or (color is not None and (type(color) is not int or color not in range(4))):
+        if (type(version) is not int or version != 1 or
+                (color is not None and (type(color) is not int or color not in range(4)))):
             raise ValueError("unsupported or invalid state values")
         return color
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
@@ -382,6 +401,7 @@ def make_game_plans(name: str, seed: int, previous: int | None) -> list[GamePlan
         "servo-only-after-loss": (4,),
         "start-reset": (1, 1, 1),
         "button-remap": (4,),
+        "chunk-boundary": (11,),
     }
     try:
         lengths = scenario_lengths[name]
@@ -425,6 +445,8 @@ def build_wokwi_firmware(seed: int, previous: int | None, scenario: str,
         )
         if scenario == "button-remap":
             flags += " -DWOKWI_TEST_BUTTON_REMAP"
+        if scenario == "chunk-boundary":
+            flags += " -DWOKWI_TEST_CHUNK_BOUNDARY"
         command = [
             arduino_cli, "compile",
             "--fqbn", "arduino:avr:uno",
@@ -467,6 +489,13 @@ def button_input_values(serial: str) -> list[tuple[int, int, int]]:
             for position, color, timestamp in pattern.findall(serial)]
 
 
+def forward_delta(later: int, earlier: int, label: str) -> int:
+    delta = (later - earlier) & 0xFFFFFFFF
+    if delta >= 0x80000000:
+        raise RuntimeError(f"{label} timestamps are out of order")
+    return delta
+
+
 def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: int,
                         serial: str) -> None:
     seeds = [int(value) for value in re.findall(r"^SIM_GAME_SEED:(\d+)\s*$", serial, re.MULTILINE)]
@@ -478,6 +507,7 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
     expected_first_colors = [plan.first for plan in plans]
     if first_colors != expected_first_colors:
         raise RuntimeError(f"firmware first-color log {first_colors} does not match expected {expected_first_colors}")
+
     cues = expected_cues(name, plans)
     on = marker_values(serial, "SIM_CUE_ON")
     off = marker_values(serial, "SIM_CUE_OFF")
@@ -496,9 +526,9 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         gap_symbol, gap_at = gap[index]
         if {on_symbol, off_symbol, stop_symbol, gap_symbol} != {expected_symbol}:
             raise RuntimeError(f"cue {index} color markers do not match expected symbol {expected_symbol}")
-        light_duration = (off_at - on_at) & 0xFFFFFFFF
-        stop_offset = (stop_at - off_at) & 0xFFFFFFFF
-        dark_gap = (gap_at - off_at) & 0xFFFFFFFF
+        light_duration = forward_delta(off_at, on_at, f"cue {index} light")
+        stop_offset = forward_delta(stop_at, off_at, f"cue {index} stop")
+        dark_gap = forward_delta(gap_at, off_at, f"cue {index} dark gap")
         if not 2000 <= light_duration <= 2200:
             raise RuntimeError(f"cue {index} light duration was {light_duration} ms, expected about 2000 ms")
         if stop_offset > 150:
@@ -507,7 +537,7 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
             raise RuntimeError(f"cue {index} dark gap was {dark_gap} ms, expected at least 180 ms")
         if index + 1 < len(on):
             next_on = on[index + 1][1]
-            if ((next_on - off_at) & 0xFFFFFFFF) < 180:
+            if forward_delta(next_on, off_at, f"cue {index + 1} onset") < 180:
                 raise RuntimeError(f"cue {index + 1} began less than 180 ms after cue {index} turned off")
 
     lines = serial.splitlines()
@@ -515,6 +545,7 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
     cue_off_line_indices = [i for i, line in enumerate(lines) if re.match(r"SIM_CUE_OFF:\d+:\d+", line)]
     if len(cue_on_line_indices) != len(cues) or len(cue_off_line_indices) != len(cues):
         raise RuntimeError("could not pair cue markers with serial transcript lines")
+
     for index, symbol in enumerate(cues):
         region = lines[cue_on_line_indices[index] + 1:cue_off_line_indices[index]]
         track = symbol + 1
@@ -531,45 +562,123 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         releases = marker_values(serial, "SIM_INPUT_RELEASE")
         if len(ready) != 1 or len(presses) != 1 or len(releases) != 1:
             raise RuntimeError("first-round transcript must contain one ready/press/release marker")
-        if ((presses[0][1] - ready[0]) & 0xFFFFFFFF) < 5000:
+        wait_before_press = forward_delta(presses[0][1], ready[0], "input-ready/press")
+        if wait_before_press < 5000:
             raise RuntimeError("player answer was not accepted after waiting beyond the former 5 s limit")
         if presses[0][0] != plans[0].first or releases[0][0] != plans[0].first:
             raise RuntimeError("first-round input markers do not match the randomized expected color")
-        if ((releases[0][1] - presses[0][1]) & 0xFFFFFFFF) < 5000:
+        hold_duration = forward_delta(releases[0][1], presses[0][1], "input press/release")
+        if hold_duration < 5000:
             raise RuntimeError("pressed answer was not held beyond the former 5 s limit")
         if "INPUT_TIMEOUT" in serial:
             raise RuntimeError("transcript contains the removed player input timeout")
         if "SIM_GAME_OVER_START" in serial:
             raise RuntimeError("first-round answer entered Game Over before successful completion")
+        ready_line = next(i for i, line in enumerate(lines)
+                          if re.match(r"SIM_INPUT_READY:\d+", line))
         press_line = next(i for i, line in enumerate(lines)
                           if re.match(r"SIM_INPUT_PRESS:\d+:\d+", line))
         release_line = next(i for i, line in enumerate(lines)
                             if re.match(r"SIM_INPUT_RELEASE:\d+:\d+", line))
+        if ready_line >= press_line:
+            raise RuntimeError("answer press must follow input-ready")
         if press_line >= release_line:
             raise RuntimeError("answer release must follow its press")
-        complete_line = next((i for i, line in enumerate(lines)
-                              if line.strip() == "SIM_ROUND_COMPLETE"), None)
-        if complete_line is None or complete_line <= release_line:
-            raise RuntimeError("answer must be committed only after its debounced release")
+        complete_lines = [i for i, line in enumerate(lines)
+                          if line.strip() == "SIM_ROUND_COMPLETE"]
+        if len(complete_lines) != 1 or complete_lines[0] <= release_line:
+            raise RuntimeError("answer must be committed once, only after its debounced release")
+
+    if name == "gameover-stale-event":
+        game_over_start = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_START"]
+        drained_lines = [i for i, line in enumerate(lines)
+                         if re.match(r"SIM_GAMEOVER_EVENT_DRAINED:\d+", line)]
+        game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
+        game_starts = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_START"]
+        wrong_answers = [i for i, line in enumerate(lines) if line.strip() == "WRONG_ANSWER"]
+        if not (len(game_over_start) == len(drained_lines) == len(game_over_stop) == 1 and
+                len(game_starts) == 2 and len(wrong_answers) == 1 and
+                game_starts[0] < wrong_answers[0] < game_over_start[0] < drained_lines[0] <
+                game_over_stop[0] < game_starts[1]):
+            raise RuntimeError("Game Over completion must be drained before stop and the next game")
+        prior_audio_starts = [i for i, line in enumerate(lines[:game_over_start[0]])
+                              if re.match(r"SIM_AUDIO_START:(\d+)", line)]
+        if len(prior_audio_starts) < 2:
+            raise RuntimeError("Game Over audio start must be present before its state marker")
+        game_over_track = int(re.match(r"SIM_AUDIO_START:(\d+)", lines[prior_audio_starts[-1]]).group(1))
+        drained_track = int(re.match(r"SIM_GAMEOVER_EVENT_DRAINED:(\d+)", lines[drained_lines[0]]).group(1))
+        if drained_track != game_over_track:
+            raise RuntimeError("Game Over must drain its own completion event")
+        game_over_region = lines[game_over_start[0] + 1:game_over_stop[0]]
+        if any(line.startswith("SIM_AUDIO_DONE:") for line in game_over_region):
+            raise RuntimeError("Game Over completion must be drained, not accepted as active audio completion")
+        extensions = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_EXTEND"]
+        retract = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT"]
+        retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
+        if not (len(extensions) == len(retract) == len(retract_done) == 1 and
+                game_over_start[0] < extensions[0] < drained_lines[0] < retract[0] <
+                retract_done[0] < game_over_stop[0]):
+            raise RuntimeError("Game Over must extend and finish servo return before stopping")
+
+    if name == "chunk-boundary":
+        expected = list(plans[0].symbols)
+        if len(expected) != 11 or serial.count("SIM_TEST_CHUNK_BOUNDARY") != 1:
+            raise RuntimeError("chunk-boundary run must start directly at round 11")
+        ready = [int(value) & 0xFFFFFFFF for value in
+                 re.findall(r"^SIM_INPUT_READY:(\d+)\s*$", serial, re.MULTILINE)]
+        presses = marker_values(serial, "SIM_INPUT_PRESS")
+        releases = marker_values(serial, "SIM_INPUT_RELEASE")
+        if len(ready) != 1 or len(presses) != 11 or len(releases) != 11:
+            raise RuntimeError("round 11 must contain one ready marker and eleven press/release pairs")
+        if [symbol for symbol, _ in presses] != expected or [symbol for symbol, _ in releases] != expected:
+            raise RuntimeError("round-11 answers do not match the planned eleven-symbol sequence")
+        ready_line = next(i for i, line in enumerate(lines) if re.match(r"SIM_INPUT_READY:\d+", line))
+        press_lines = [i for i, line in enumerate(lines) if re.match(r"SIM_INPUT_PRESS:\d+:\d+", line)]
+        release_lines = [i for i, line in enumerate(lines) if re.match(r"SIM_INPUT_RELEASE:\d+:\d+", line)]
+        complete_lines = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
+        if not (len(press_lines) == len(release_lines) == 11 and len(complete_lines) == 1 and
+                ready_line < press_lines[0]):
+            raise RuntimeError("round-11 input must contain eleven ordered pairs after input-ready")
+        for index, (pressed, released) in enumerate(zip(presses, releases)):
+            if not press_lines[index] < release_lines[index]:
+                raise RuntimeError(f"round-11 answer {index + 1} release must follow its press")
+            if index and release_lines[index - 1] >= press_lines[index]:
+                raise RuntimeError(f"round-11 answer {index + 1} began before the previous release")
+            if not 25 <= forward_delta(released[1], pressed[1], f"round-11 answer {index + 1}") < 1000:
+                raise RuntimeError(f"round-11 answer {index + 1} was not debounced and released")
+        if complete_lines[0] <= release_lines[-1]:
+            raise RuntimeError("round 11 must complete only after the eleventh released answer")
+        if "WRONG_ANSWER" in serial or "WRONG_CHORD" in serial or "SIM_GAME_OVER_START" in serial:
+            raise RuntimeError("valid round-11 answers unexpectedly entered Game Over")
 
     if name == "start-reset":
         reset_lines = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_RESET"]
         game_starts = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_START"]
         queued = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_RESET_QUEUED"]
         game_over = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_START"]
+        extensions = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_EXTEND"]
+        retract = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT"]
         retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
         game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
         if not (len(reset_lines) == 2 and len(game_starts) == 3 and len(queued) == 1 and
-                len(game_over) == 1 and len(retract_done) == 1 and len(game_over_stop) == 1 and
-                game_starts[0] < reset_lines[0] < game_starts[1] < game_over[0] < queued[0] <
-                retract_done[0] < game_over_stop[0] < reset_lines[1] < game_starts[2]):
+                len(game_over) == len(extensions) == len(retract) == len(retract_done) ==
+                len(game_over_stop) == 1 and
+                game_starts[0] < reset_lines[0] < game_starts[1] < game_over[0] < extensions[0] <
+                queued[0] < retract[0] < retract_done[0] < game_over_stop[0] < reset_lines[1] < game_starts[2]):
             raise RuntimeError("Start must reset active play and defer a queued reset until servo return finishes")
 
     if name == "servo-only-after-loss":
+        rounds = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
         game_over = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_START"]
         extensions = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_EXTEND"]
-        if len(game_over) != 1 or len(extensions) != 1 or extensions[0] <= game_over[0]:
-            raise RuntimeError("servo extension must occur only after the player-loss Game Over marker")
+        retract = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT"]
+        retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
+        game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
+        if not (len(rounds) == 3 and len(game_over) == len(extensions) == len(retract) ==
+                len(retract_done) == len(game_over_stop) == 1 and
+                rounds[-1] < game_over[0] < extensions[0] < retract[0] <
+                retract_done[0] < game_over_stop[0]):
+            raise RuntimeError("servo must stay still for successful rounds and return only after player loss")
 
     if name == "button-remap":
         plan = plans[0]
@@ -684,20 +793,26 @@ def display_color(color: int | None) -> str:
     return "none" if color is None else f"{COLORS[color]}({color})"
 
 
+def format_replay_command(name: str, seed: int, previous: int | None) -> str:
+    previous_argument = "none" if previous is None else str(previous)
+    script_path = shlex.quote((ROOT / "scripts" / "run-wokwi-tests.py").as_posix())
+    return (
+        f"python3 {script_path} --scenario {name} --seed 0x{seed:08X} "
+        f"--previous-first-color {previous_argument} --no-persist"
+    )
+
+
 def run_one(name: str, seed: int, previous: int | None, state_path: Path,
             persist: bool, output_root: Path) -> tuple[bool, int | None]:
     plans = make_game_plans(name, seed, previous)
+    cues = expected_cues(name, plans)
     print(
         f"WOKWI_TEST scenario={name} seed=0x{seed:08X} previous_first={display_color(previous)} "
-        f"expected_first={[display_color(plan.first) for plan in plans]}",
+        f"expected_first={[display_color(plan.first) for plan in plans]} expected_cues={cues}",
         flush=True,
     )
-    replay_previous = "none" if previous is None else str(previous)
-    print(
-        f"REPLAY: python3 scripts/run-wokwi-tests.py --scenario {name} --seed 0x{seed:08X} "
-        f"--previous-first-color {replay_previous} --no-persist",
-        flush=True,
-    )
+    replay_command = format_replay_command(name, seed, previous)
+    print(f"REPLAY: {replay_command}", flush=True)
 
     artifact_dir = output_root / f"{name}-{seed:08x}-{int(time.time() * 1000)}-{secrets.token_hex(2)}"
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -713,11 +828,9 @@ def run_one(name: str, seed: int, previous: int | None, state_path: Path,
         "seed": seed,
         "previous_first_color": previous,
         "expected_first_colors": [plan.first for plan in plans],
+        "expected_cues": cues,
         "mock_completion_delay_ms": MOCK_DELAY_MS[name],
-        "replay_command": (
-            f"python3 scripts/run-wokwi-tests.py --scenario {name} --seed 0x{seed:08X} "
-            f"--previous-first-color {replay_previous} --no-persist"
-        ),
+        "replay_command": replay_command,
     }
     if name == "button-remap":
         manifest["expected_button_mappings"] = {

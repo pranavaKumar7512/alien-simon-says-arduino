@@ -11,6 +11,7 @@
 #endif
 #include "audio_completion_filter.h"
 #include "button_mapping.h"
+#include "audio_track_config.h"
 #include "first_color_journal.h"
 #include "game_sequence.h"
 #include "player_led_feedback.h"
@@ -498,7 +499,7 @@ static void startTrack(uint8_t track, bool gameOverTrack = false) {
   audioFinished = false;
   audioRunning = true;
   audioStartedAt = millis();
-  if (mp3Ready) mp3.playMp3Folder(track); // /mp3/0001.mp3 through /mp3/0004.mp3
+  if (mp3Ready) mp3.playMp3Folder(track); // /mp3/0001.mp3 through /mp3/0005.mp3
 #if defined(WOKWI_SIM)
   Serial.print(F("SIM_AUDIO_START:"));
   Serial.println(track);
@@ -531,7 +532,8 @@ static void beginGameOver(uint32_t now, bool playerLost) {
   gameOverStartedAt = millis();
   uint32_t randomTrackState = sequenceSeed ^ now ^ micros();
   if (randomTrackState == 0) randomTrackState = 0x6D2B79F5UL;
-  uint8_t track = (uint8_t)(nextAudioSymbol(randomTrackState) + 1U);
+  uint8_t randomTrack = (uint8_t)(nextAudioSymbol(randomTrackState) % AUDIO_LAST_CUE_TRACK + 1U);
+  uint8_t track = gameOverAudioTrack(playerLost, randomTrack);
   startTrack(track, true);
   gameState = GAME_OVER;
   Serial.println(F("GAME_OVER"));
@@ -577,6 +579,10 @@ static void beginGame(uint32_t now) {
     return;
   }
   completedRounds = 0;
+#if defined(WOKWI_SIM) && defined(WOKWI_TEST_CHUNK_BOUNDARY)
+  completedRounds = 10UL;
+  Serial.println(F("SIM_TEST_CHUNK_BOUNDARY"));
+#endif
   sequenceSeed = freshSeed;
   prepareGameSequence(sequenceSeed);
   buttonMappingReset(buttonToCueColor);
@@ -629,6 +635,12 @@ static void completeCorrectAnswer(uint32_t now) {
   Serial.println(F("ROUND_COMPLETE"));
 #if defined(WOKWI_SIM)
   Serial.println(F("SIM_ROUND_COMPLETE"));
+#endif
+#if defined(WOKWI_SIM) && defined(WOKWI_TEST_CHUNK_BOUNDARY)
+  if (completedRounds == 11UL) {
+    gameState = IDLE; // End the test build after the chunk-boundary answer is accepted.
+    return;
+  }
 #endif
 
   // Stop safely before the completed-round counter would wrap and corrupt

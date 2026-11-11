@@ -234,6 +234,31 @@ static void test_stop_cancels_completion_and_is_idempotent(void) {
   assert(timer_stop_count > stops_after_stop);
 }
 
+static void test_loss_track_five_completes_and_track_six_is_rejected(void) {
+  uint8_t frame[DFPLAYER_FRAME_SIZE];
+  make_frame(0x12, AUDIO_GAME_OVER_LOSS_TRACK, frame);
+  send_frame(frame);
+  assert(current_track == AUDIO_GAME_OVER_LOSS_TRACK);
+  assert(completion_pending);
+  assert(scheduled_micros == 250000UL);
+
+  transmitted_count = 0;
+  fake_timer_pending = false;
+  registered_timer.callback(registered_timer.user_data);
+  assert(transmitted_count == DFPLAYER_FRAME_SIZE);
+  assert(valid_frame(transmitted));
+  assert(transmitted[3] == DFPLAYER_EVENT_PLAY_FINISHED);
+  assert(transmitted[6] == AUDIO_GAME_OVER_LOSS_TRACK);
+  assert(last_completed_track == AUDIO_GAME_OVER_LOSS_TRACK);
+  assert(current_track == 0);
+  assert(!completion_pending);
+
+  make_frame(0x12, AUDIO_MAX_TRACK + 1U, frame);
+  send_frame(frame);
+  assert(current_track == 0);
+  assert(!completion_pending);
+}
+
 int main(void) {
   chip_init();
   assert(registered_uart.baud_rate == 9600);
@@ -247,6 +272,7 @@ int main(void) {
   test_truncated_prefix_recovers_valid_play_frame();
   test_fragmented_play_completion_and_checksum();
   test_stop_cancels_completion_and_is_idempotent();
+  test_loss_track_five_completes_and_track_six_is_rejected();
   puts("DFPlayer mock protocol tests passed");
   return 0;
 }
