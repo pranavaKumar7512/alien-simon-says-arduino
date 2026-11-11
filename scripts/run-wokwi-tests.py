@@ -25,6 +25,9 @@ BUTTONS = BUTTON_PARTS_BY_POSITION
 BUTTON_MAPPING_SEED_SALT = 0xB5297A4D
 BUTTON_MAPPING_FALLBACK_SEED = 0x68E31DA4
 BUTTON_MAPPING_DEMO_MS = 5500
+GAME_OVER_MIN_MS = 3000
+SERVO_GAME_OVER_HOLD_MS = 3000
+SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS = 3000
 SCENARIOS = (
     "first-round", "gameover-stale-event", "servo-only-after-loss", "start-reset",
     "button-remap", "chunk-boundary",
@@ -207,12 +210,20 @@ def render_scenario(name: str, plans: list[GamePlan]) -> str:
         steps.append(wait_step("SIM_INPUT_READY"))
 
     elif name == "start-reset":
+        first = plans[0].first
         steps.append(wait_step("SIM_INPUT_READY"))
+        press_and_release(steps, BUTTON_PARTS_BY_POSITION[first])
+        steps.extend((
+            wait_step("SIM_SCORE_STATE:1:"),
+            wait_step("SIM_ROUND_COMPLETE"),
+            wait_step("SIM_INPUT_READY"),
+        ))
         press_and_release(steps, "button-start")
         steps.extend((
             wait_step("SIM_GAME_RESET"),
             wait_step("SIM_GAME_START"),
             wait_step(f"SIM_GAME_SEED:{plans[1].seed}"),
+            wait_step("SIM_SCORE_STATE:0:"),
             wait_step(f"SIM_FIRST_COLOR:{plans[1].first}"),
             wait_step("SIM_INPUT_READY"),
         ))
@@ -231,6 +242,7 @@ def render_scenario(name: str, plans: list[GamePlan]) -> str:
             wait_step("SIM_GAME_RESET"),
             wait_step("SIM_GAME_START"),
             wait_step(f"SIM_GAME_SEED:{plans[2].seed}"),
+            wait_step("SIM_SCORE_STATE:0:"),
             wait_step(f"SIM_FIRST_COLOR:{plans[2].first}"),
             wait_step("SIM_INPUT_READY"),
         ))
@@ -294,7 +306,7 @@ def expected_cues(name: str, plans: list[GamePlan]) -> list[int]:
     if name == "gameover-stale-event":
         return [plans[0].first, plans[1].first]
     if name == "start-reset":
-        return [plan.first for plan in plans]
+        return [plans[0].first, *plans[0].symbols, plans[1].first, plans[2].first]
     if name == "chunk-boundary":
         return list(plans[0].symbols)
     if name in ("servo-only-after-loss", "button-remap"):
@@ -399,7 +411,7 @@ def make_game_plans(name: str, seed: int, previous: int | None) -> list[GamePlan
         "first-round": (1,),
         "gameover-stale-event": (1, 1),
         "servo-only-after-loss": (4,),
-        "start-reset": (1, 1, 1),
+        "start-reset": (2, 1, 1),
         "button-remap": (4,),
         "chunk-boundary": (11,),
     }
@@ -496,6 +508,55 @@ def forward_delta(later: int, earlier: int, label: str) -> int:
     return delta
 
 
+def timed_event_values(lines: list[str], marker: str) -> list[tuple[int, int]]:
+    pattern = re.compile(rf"^{re.escape(marker)}:(\d+)\s*$")
+    return [(index, int(match.group(1)) & 0xFFFFFFFF)
+            for index, line in enumerate(lines)
+            if (match := pattern.match(line)) is not None]
+
+
+def validate_game_over_timing(lines: list[str]) -> None:
+    started = timed_event_values(lines, "SIM_GAME_OVER_START")
+    stopped = timed_event_values(lines, "SIM_GAME_OVER_STOP")
+    extended = timed_event_values(lines, "SIM_SERVO_EXTEND")
+    retracted = timed_event_values(lines, "SIM_SERVO_RETRACT")
+    retract_done = timed_event_values(lines, "SIM_SERVO_RETRACT_DONE")
+    if not any((started, stopped, extended, retracted, retract_done)):
+        return
+    if len(started) != 1 or len(stopped) != 1:
+        raise RuntimeError("Game Over must have one timestamped start and stop")
+
+    duration = forward_delta(stopped[0][1], started[0][1], "Game Over duration")
+    if duration < GAME_OVER_MIN_MS:
+        raise RuntimeError(
+            f"Game Over duration was {duration} ms, expected at least {GAME_OVER_MIN_MS} ms"
+        )
+
+    servo_events = (extended, retracted, retract_done)
+    if not any(servo_events):
+        return
+    if any(len(events) != 1 for events in servo_events):
+        raise RuntimeError("servo loss path must have one timestamped extend/retract/return-done event")
+    if not (started[0][0] < extended[0][0] < retracted[0][0] <
+            retract_done[0][0] < stopped[0][0]):
+        raise RuntimeError("Game Over and servo transition markers are out of order")
+
+    hold = forward_delta(retracted[0][1], extended[0][1], "servo hold")
+    if hold < SERVO_GAME_OVER_HOLD_MS:
+        raise RuntimeError(
+            f"servo hold was {hold} ms, expected at least {SERVO_GAME_OVER_HOLD_MS} ms"
+        )
+    return_allowance = forward_delta(
+        retract_done[0][1], retracted[0][1], "servo return allowance"
+    )
+    if return_allowance < SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS:
+        raise RuntimeError(
+            "servo return allowance was "
+            f"{return_allowance} ms, expected at least {SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS} ms"
+        )
+    forward_delta(stopped[0][1], retract_done[0][1], "Game Over stop after servo return")
+
+
 def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: int,
                         serial: str) -> None:
     seeds = [int(value) for value in re.findall(r"^SIM_GAME_SEED:(\d+)\s*$", serial, re.MULTILINE)]
@@ -542,6 +603,7 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
             forward_delta(next_on, gap_at, f"cue {index + 1} onset after cue {index} dark gap")
 
     lines = serial.splitlines()
+    validate_game_over_timing(lines)
     cue_on_line_indices = [i for i, line in enumerate(lines) if re.match(r"SIM_CUE_ON:\d+:\d+", line)]
     cue_off_line_indices = [i for i, line in enumerate(lines) if re.match(r"SIM_CUE_OFF:\d+:\d+", line)]
     cue_stop_line_indices = [i for i, line in enumerate(lines)
@@ -563,7 +625,7 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         "first-round": (1,),
         "gameover-stale-event": (1, 1),
         "servo-only-after-loss": (1, 2, 3, 4),
-        "start-reset": (1, 1, 1),
+        "start-reset": (1, 2, 1, 1),
         "button-remap": (1, 2, 3, 4),
         "chunk-boundary": (11,),
     }[name]
@@ -630,10 +692,10 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
             raise RuntimeError("answer must be committed once, only after its debounced release")
 
     if name == "gameover-stale-event":
-        game_over_start = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_START"]
+        game_over_start = [index for index, _ in timed_event_values(lines, "SIM_GAME_OVER_START")]
         drained_lines = [i for i, line in enumerate(lines)
                          if re.match(r"SIM_GAMEOVER_EVENT_DRAINED:\d+", line)]
-        game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
+        game_over_stop = [index for index, _ in timed_event_values(lines, "SIM_GAME_OVER_STOP")]
         game_starts = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_START"]
         wrong_answers = [i for i, line in enumerate(lines) if line.strip() == "WRONG_ANSWER"]
         wrong_chords = [i for i, line in enumerate(lines) if line.strip() == "WRONG_CHORD"]
@@ -657,9 +719,9 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         game_over_region = lines[game_over_start[0] + 1:game_over_stop[0]]
         if any(line.startswith("SIM_AUDIO_DONE:") for line in game_over_region):
             raise RuntimeError("Game Over completion must be drained, not accepted as active audio completion")
-        extensions = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_EXTEND"]
-        retract = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT"]
-        retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
+        extensions = [index for index, _ in timed_event_values(lines, "SIM_SERVO_EXTEND")]
+        retract = [index for index, _ in timed_event_values(lines, "SIM_SERVO_RETRACT")]
+        retract_done = [index for index, _ in timed_event_values(lines, "SIM_SERVO_RETRACT_DONE")]
         if not (len(extensions) == len(retract) == len(retract_done) == 1 and
                 game_over_start[0] < extensions[0] < drained_lines[0] < retract[0] <
                 retract_done[0] < game_over_stop[0]):
@@ -703,33 +765,56 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         reset_lines = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_RESET"]
         game_starts = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_START"]
         queued = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_RESET_QUEUED"]
-        game_over = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_START"]
-        extensions = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_EXTEND"]
-        retract = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT"]
-        retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
-        game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
+        game_over = [index for index, _ in timed_event_values(lines, "SIM_GAME_OVER_START")]
+        extensions = [index for index, _ in timed_event_values(lines, "SIM_SERVO_EXTEND")]
+        retract = [index for index, _ in timed_event_values(lines, "SIM_SERVO_RETRACT")]
+        retract_done = [index for index, _ in timed_event_values(lines, "SIM_SERVO_RETRACT_DONE")]
+        game_over_stop = [index for index, _ in timed_event_values(lines, "SIM_GAME_OVER_STOP")]
         wrong_answers = [i for i, line in enumerate(lines) if line.strip() == "WRONG_ANSWER"]
         wrong_chords = [i for i, line in enumerate(lines) if line.strip() == "WRONG_CHORD"]
         ready_lines = [i for i, line in enumerate(lines)
                        if re.match(r"SIM_INPUT_READY:\d+", line)]
+        round_completions = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
         if not (not wrong_chords and
                 len(reset_lines) == 2 and len(game_starts) == 3 and len(queued) == 1 and
-                len(wrong_answers) == 1 and len(ready_lines) == 3 and
+                len(wrong_answers) == 1 and len(ready_lines) == 4 and len(round_completions) == 1 and
                 len(game_over) == len(extensions) == len(retract) == len(retract_done) ==
                 len(game_over_stop) == 1 and
-                game_starts[0] < ready_lines[0] < reset_lines[0] < game_starts[1] <
-                ready_lines[1] < wrong_answers[0] < game_over[0] < extensions[0] <
-                queued[0] < retract[0] < retract_done[0] < game_over_stop[0] <
-                reset_lines[1] < game_starts[2] < ready_lines[2]):
-            raise RuntimeError("Start must reset active play and defer a queued reset until the wrong-answer loss and servo return finish")
+                game_starts[0] < ready_lines[0] < round_completions[0] < ready_lines[1] <
+                reset_lines[0] < game_starts[1] < ready_lines[2] < wrong_answers[0] <
+                game_over[0] < extensions[0] < queued[0] < retract[0] < retract_done[0] <
+                game_over_stop[0] < reset_lines[1] < game_starts[2] < ready_lines[3]):
+            raise RuntimeError("Start must reset after a completed round and defer a queued reset until the wrong-answer loss and servo return finish")
+
+        score_states = []
+        for index, line in enumerate(lines):
+            match = re.match(r"SIM_SCORE_STATE:(\d+):(\d+)$", line)
+            if match is not None:
+                score_states.append((index, int(match.group(1)), int(match.group(2))))
+        if len(score_states) != 4:
+            raise RuntimeError(f"start-reset must report four score states, found {len(score_states)}")
+        initial_score, completed_score, reset_score, queued_reset_score = score_states
+        if not (initial_score[1] == 0 and completed_score[1] == 1 and
+                reset_score[1] == queued_reset_score[1] == 0 and
+                completed_score[2] >= 1 and completed_score[2] >= initial_score[2] and
+                reset_score[2] == completed_score[2] and
+                queued_reset_score[2] == reset_score[2] and
+                game_starts[0] < initial_score[0] < ready_lines[0] <
+                completed_score[0] < round_completions[0] <
+                reset_lines[0] < game_starts[1] < reset_score[0] < ready_lines[2] and
+                reset_lines[1] < game_starts[2] < queued_reset_score[0] < ready_lines[3]):
+            raise RuntimeError(
+                "start-reset score telemetry must show a completed round, reset current score to zero, "
+                "and preserve best score across both restarts"
+            )
 
     if name == "servo-only-after-loss":
         rounds = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
-        game_over = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_START"]
-        extensions = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_EXTEND"]
-        retract = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT"]
-        retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
-        game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
+        game_over = [index for index, _ in timed_event_values(lines, "SIM_GAME_OVER_START")]
+        extensions = [index for index, _ in timed_event_values(lines, "SIM_SERVO_EXTEND")]
+        retract = [index for index, _ in timed_event_values(lines, "SIM_SERVO_RETRACT")]
+        retract_done = [index for index, _ in timed_event_values(lines, "SIM_SERVO_RETRACT_DONE")]
+        game_over_stop = [index for index, _ in timed_event_values(lines, "SIM_GAME_OVER_STOP")]
         wrong_answers = [i for i, line in enumerate(lines) if line.strip() == "WRONG_ANSWER"]
         wrong_chords = [i for i, line in enumerate(lines) if line.strip() == "WRONG_CHORD"]
         ready_lines = [i for i, line in enumerate(lines)
