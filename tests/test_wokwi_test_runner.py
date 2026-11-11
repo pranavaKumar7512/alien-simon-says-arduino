@@ -1,4 +1,5 @@
 import importlib.util
+import re
 import sys
 import tempfile
 import unittest
@@ -9,6 +10,57 @@ SPEC = importlib.util.spec_from_file_location("wokwi_test_runner", SCRIPT)
 RUNNER = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = RUNNER
 SPEC.loader.exec_module(RUNNER)
+
+
+def button_remap_transcript(plan):
+    maps = RUNNER.mappings_through_round(plan.seed, 4)
+    encode = lambda mapping: "".join(str(color) for color in mapping)
+    lines = [
+        f"SIM_GAME_START",
+        f"SIM_GAME_SEED:{plan.seed}",
+        f"SIM_BUTTON_MAP:1:{encode(maps[1])}",
+        f"SIM_FIRST_COLOR:{plan.first}",
+    ]
+    clock = 100
+    for round_number in range(1, 5):
+        mapping = maps[round_number]
+        for color in plan.symbols[:round_number]:
+            off = clock + 2000
+            position = RUNNER.button_position_for_color(mapping, color)
+            lines.extend((
+                f"SIM_MAPPED_LED_ON:{color}:{position}:{clock}",
+                f"SIM_CUE_ON:{color}:{clock}",
+                f"SIM_AUDIO_START:{color + 1}",
+                f"SIM_CUE_OFF:{color}:{off}",
+                f"SIM_CUE_STOP_REQUEST:{color}:{off}",
+                f"SIM_CUE_GAP_DONE:{color}:{off + 180}",
+            ))
+            clock = off + 180
+        ready = clock + 50
+        lines.append(f"SIM_INPUT_READY:{ready}")
+        for index, color in enumerate(plan.symbols[:round_number]):
+            press = ready + 50 + index * 100
+            position = RUNNER.button_position_for_color(mapping, color)
+            lines.extend((
+                f"SIM_MAPPED_LED_ON:{color}:{position}:{press}",
+                f"SIM_BUTTON_INPUT:{position}:{color}:{press}",
+                f"SIM_INPUT_PRESS:{color}:{press}",
+                f"SIM_INPUT_RELEASE:{color}:{press + 60}",
+            ))
+        lines.append("SIM_ROUND_COMPLETE")
+        clock = ready + 50 + round_number * 100 + 100
+        if round_number == 3:
+            lines.extend((
+                f"SIM_BUTTON_MAP:4:{encode(maps[4])}",
+                "SIM_AUDIO_START:1",
+                "SIM_AUDIO_DONE:1",
+                f"SIM_BUTTON_DEMO_START:4:{clock}",
+                f"SIM_BUTTON_DEMO_MAP:4:{encode(maps[4])}",
+                f"SIM_BUTTON_DEMO_END:4:{clock + 5500}",
+            ))
+            clock += 5600
+    lines.append("SIM_TEST_BUTTON_REMAP_DONE")
+    return "\n".join(lines)
 
 
 class WokwiTestRunnerTests(unittest.TestCase):
@@ -34,6 +86,93 @@ class WokwiTestRunnerTests(unittest.TestCase):
         plan = RUNNER.game_plan(1, None, 8)
         self.assertEqual(plan.symbols, (1, 1, 1, 3, 1, 0, 2, 2))
         self.assertEqual(plan.symbols[0], plan.symbols[1])
+
+    def test_button_mappings_shuffle_after_each_three_completed_rounds(self):
+        seed = 0x12345678
+        cues_before = RUNNER.game_plan(seed, None, 30).symbols
+        mapping = RUNNER.mappings_through_round(seed, 10)
+        cues_after = RUNNER.game_plan(seed, None, 30).symbols
+        identity = (0, 1, 2, 3)
+        self.assertEqual([mapping[round_number] for round_number in range(1, 4)],
+                         [identity, identity, identity])
+        self.assertEqual(mapping[4], (1, 2, 3, 0))
+        self.assertEqual(mapping[7], (1, 2, 0, 3))
+        self.assertEqual(mapping[10], (3, 0, 1, 2))
+        self.assertNotEqual(mapping[7], mapping[4])
+        self.assertNotEqual(mapping[10], mapping[7])
+        for round_mapping in mapping.values():
+            self.assertEqual(sorted(round_mapping), list(range(4)))
+        self.assertEqual(mapping, RUNNER.mappings_through_round(seed, 10))
+        self.assertEqual(cues_before, cues_after)
+
+        initial = (0, 1, 2, 3)
+        stream = RUNNER.button_mapping_seed(seed)
+        first, _ = RUNNER.shuffle_button_mapping(initial, stream)
+        repeated_candidate, _ = RUNNER.shuffle_button_mapping(first, stream)
+        self.assertNotEqual(repeated_candidate, first)
+        self.assertEqual(sorted(repeated_candidate), list(range(4)))
+
+    def test_button_remap_scenario_uses_position_to_color_mapping(self):
+        plan = RUNNER.game_plan(0x12345678, None, 4)
+        scenario = RUNNER.render_scenario("button-remap", [plan])
+        maps = RUNNER.mappings_through_round(plan.seed, 4)
+        self.assertIn("SIM_BUTTON_MAP:4:" + "".join(map(str, maps[4])), scenario)
+        self.assertIn("SIM_BUTTON_DEMO_MAP:4:" + "".join(map(str, maps[4])), scenario)
+        self.assertIn("SIM_TEST_BUTTON_REMAP_DONE", scenario)
+        self.assertEqual(len(RUNNER.expected_cues("button-remap", [plan])), 10)
+
+        part_ids = re.findall(r"part-id: (button-(?:red|green|blue|yellow|start))", scenario)
+        self.assertEqual(part_ids[:2], ["button-start", "button-start"])
+        actual_inputs = part_ids[2:]
+        expected_inputs = []
+        for round_number in range(1, 5):
+            mapping = maps[round_number]
+            for color in plan.symbols[:round_number]:
+                part = RUNNER.BUTTON_PARTS_BY_POSITION[
+                    RUNNER.button_position_for_color(mapping, color)
+                ]
+                expected_inputs.extend((part, part))
+        self.assertEqual(actual_inputs, expected_inputs)
+
+    def test_button_remap_transcript_rejects_wrong_position_and_map(self):
+        plans = RUNNER.make_game_plans("button-remap", 0x12345678, None)
+        serial = button_remap_transcript(plans[0])
+        RUNNER.validate_transcript("button-remap", plans, 2300, serial)
+
+        first_led = re.search(r"SIM_MAPPED_LED_ON:([0-3]):([0-3]):(\d+)", serial)
+        self.assertIsNotNone(first_led)
+        wrong_led_position = (int(first_led.group(2)) + 1) % 4
+        malformed_led = (serial[:first_led.start(2)] + str(wrong_led_position) +
+                         serial[first_led.end(2):])
+        with self.assertRaisesRegex(RuntimeError, "mapped LED cues/feedback"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, malformed_led)
+
+        first_input = re.search(r"SIM_BUTTON_INPUT:([0-3]):([0-3]):(\d+)", serial)
+        self.assertIsNotNone(first_input)
+        wrong_position = (int(first_input.group(1)) + 1) % 4
+        malformed_input = serial[:first_input.start(1)] + str(wrong_position) + serial[first_input.end(1):]
+        with self.assertRaisesRegex(RuntimeError, "button position/color inputs"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, malformed_input)
+
+        maps = RUNNER.mappings_through_round(plans[0].seed, 4)
+        wrong_map = list(maps[4])
+        wrong_map[0], wrong_map[1] = wrong_map[1], wrong_map[0]
+        malformed_map = serial.replace(
+            "SIM_BUTTON_MAP:4:" + "".join(map(str, maps[4])),
+            "SIM_BUTTON_MAP:4:" + "".join(map(str, wrong_map)),
+        )
+        with self.assertRaisesRegex(RuntimeError, "button mapping logs"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, malformed_map)
+
+        start_demo, end_demo = re.findall(
+            r"SIM_BUTTON_DEMO_(?:START|END):4:(\d+)", serial
+        )
+        too_short = serial.replace(
+            f"SIM_BUTTON_DEMO_END:4:{end_demo}",
+            f"SIM_BUTTON_DEMO_END:4:{int(start_demo) + 5499}",
+        )
+        with self.assertRaisesRegex(RuntimeError, "at least 5.5 seconds"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, too_short)
 
     def test_uniform_below_rejects_upper_nonzero_states(self):
         vectors = (
@@ -74,11 +213,11 @@ class WokwiTestRunnerTests(unittest.TestCase):
         ))
         RUNNER.validate_transcript("gameover-stale-event", plans, 2300, serial)
 
-    def test_randomized_scenarios_use_generated_button_colors(self):
+    def test_randomized_scenarios_use_positioned_buttons(self):
         first_plan = RUNNER.game_plan(0x12345678, None, 4)
         first_yaml = RUNNER.render_scenario("first-round", [first_plan])
         self.assertIn(f"SIM_FIRST_COLOR:{first_plan.first}", first_yaml)
-        self.assertIn(f"part-id: {RUNNER.BUTTONS[first_plan.first]}", first_yaml)
+        self.assertIn(f"part-id: {RUNNER.BUTTON_PARTS_BY_POSITION[first_plan.first]}", first_yaml)
         self.assertIn("SIM_CUE_OFF:", first_yaml)
         self.assertIn("SIM_CUE_GAP_DONE:", first_yaml)
         self.assertEqual(first_yaml.count("delay: 5200ms"), 2)

@@ -19,20 +19,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STATE_DEFAULT = ROOT / ".wokwi-sequence-state.json"
 COLORS = ("red", "green", "blue", "yellow")
-BUTTONS = tuple(f"button-{color}" for color in COLORS)
-SCENARIOS = ("first-round", "gameover-stale-event", "servo-only-after-loss", "start-reset")
+BUTTON_PARTS_BY_POSITION = tuple(f"button-{color}" for color in COLORS)
+BUTTON_MAPPING_SEED_SALT = 0xB5297A4D
+BUTTON_MAPPING_FALLBACK_SEED = 0x68E31DA4
+BUTTON_MAPPING_DEMO_MS = 5500
+SCENARIOS = ("first-round", "gameover-stale-event", "servo-only-after-loss", "start-reset", "button-remap")
 UNSET = object()
 TIMEOUT_MS = {
     "first-round": 20000,
     "gameover-stale-event": 24000,
     "servo-only-after-loss": 45000,
     "start-reset": 45000,
+    "button-remap": 60000,
 }
 MOCK_DELAY_MS = {
     "first-round": 250,  # natural audio completion must not shorten the 2 s light cue
     "gameover-stale-event": 2300,  # sequence audio is still active at the 2 s stop boundary
     "servo-only-after-loss": 2300,
     "start-reset": 2300,
+    "button-remap": 2300,
 }
 
 
@@ -83,6 +88,38 @@ def game_plan(seed: int, previous_first: int | None, length: int) -> GamePlan:
 def next_game_seed(seed: int) -> int:
     result = xorshift32(seed)
     return result if result != 0 else 0x6D2B79F5
+
+
+def button_mapping_seed(game_seed: int) -> int:
+    state = (game_seed ^ BUTTON_MAPPING_SEED_SALT) & 0xFFFFFFFF
+    return state if state != 0 else BUTTON_MAPPING_FALLBACK_SEED
+
+
+def shuffle_button_mapping(previous: tuple[int, ...], state: int) -> tuple[tuple[int, ...], int]:
+    mapping = list(range(len(COLORS)))
+    for remaining in range(len(COLORS) - 1, 0, -1):
+        selected, state = uniform_below(state, remaining + 1)
+        mapping[remaining], mapping[selected] = mapping[selected], mapping[remaining]
+    result = tuple(mapping)
+    if result == previous:
+        mapping[0], mapping[1] = mapping[1], mapping[0]
+        result = tuple(mapping)
+    return result, state
+
+
+def mappings_through_round(game_seed: int, final_round: int) -> dict[int, tuple[int, ...]]:
+    mapping = tuple(range(len(COLORS)))
+    state = button_mapping_seed(game_seed)
+    result: dict[int, tuple[int, ...]] = {}
+    for round_number in range(1, final_round + 1):
+        if round_number > 1 and (round_number - 1) % 3 == 0:
+            mapping, state = shuffle_button_mapping(mapping, state)
+        result[round_number] = mapping
+    return result
+
+
+def button_position_for_color(mapping: tuple[int, ...], color: int) -> int:
+    return mapping.index(color)
 
 
 def yaml_quote(value: str) -> str:
@@ -136,9 +173,9 @@ def render_scenario(name: str, plans: list[GamePlan]) -> str:
         # a pressed answer to be released even after another 5 s has elapsed.
         steps.append(delay_step(5200))
         steps.extend((
-            control_step(BUTTONS[first], True),
+            control_step(BUTTON_PARTS_BY_POSITION[first], True),
             delay_step(5200),
-            control_step(BUTTONS[first], False),
+            control_step(BUTTON_PARTS_BY_POSITION[first], False),
             delay_step(100),
             wait_step("SIM_ROUND_COMPLETE"),
         ))
@@ -147,7 +184,7 @@ def render_scenario(name: str, plans: list[GamePlan]) -> str:
         first = plans[0].first
         wrong = (first + 1) % len(COLORS)
         steps.append(wait_step("SIM_INPUT_READY"))
-        press_and_release(steps, BUTTONS[wrong])
+        press_and_release(steps, BUTTON_PARTS_BY_POSITION[wrong])
         steps.extend((
             wait_step("SIM_GAME_OVER_START"),
             wait_step("SIM_GAMEOVER_EVENT_DRAINED:"),
@@ -167,7 +204,7 @@ def render_scenario(name: str, plans: list[GamePlan]) -> str:
             wait_step("SIM_INPUT_READY"),
         ))
         wrong = (plans[1].first + 1) % len(COLORS)
-        press_and_release(steps, BUTTONS[wrong])
+        press_and_release(steps, BUTTON_PARTS_BY_POSITION[wrong])
         steps.extend((
             wait_step("SIM_GAME_OVER_START"),
             wait_step("SIM_SERVO_EXTEND"),
@@ -190,17 +227,41 @@ def render_scenario(name: str, plans: list[GamePlan]) -> str:
         for completed_round in range(1, 4):
             steps.append(wait_step("SIM_INPUT_READY"))
             for symbol in symbols[:completed_round]:
-                press_and_release(steps, BUTTONS[symbol])
+                press_and_release(steps, BUTTON_PARTS_BY_POSITION[symbol])
             steps.append(wait_step("SIM_ROUND_COMPLETE"))
         steps.append(wait_step("SIM_INPUT_READY"))
+        round_four_mapping = mappings_through_round(plans[0].seed, 4)[4]
         wrong = (symbols[0] + 1) % len(COLORS)
-        press_and_release(steps, BUTTONS[wrong])
+        wrong_position = button_position_for_color(round_four_mapping, wrong)
+        press_and_release(steps, BUTTON_PARTS_BY_POSITION[wrong_position])
         steps.extend((
             wait_step("SIM_GAME_OVER_START"),
             wait_step("SIM_SERVO_EXTEND"),
             wait_step("SIM_SERVO_RETRACT"),
             wait_step("SIM_GAME_OVER_STOP"),
         ))
+
+    elif name == "button-remap":
+        symbols = plans[0].symbols
+        mapping = tuple(range(len(COLORS)))
+        mapping_state = button_mapping_seed(plans[0].seed)
+        for completed_round in range(1, 5):
+            steps.append(wait_step("SIM_INPUT_READY"))
+            for symbol in symbols[:completed_round]:
+                position = button_position_for_color(mapping, symbol)
+                press_and_release(steps, BUTTON_PARTS_BY_POSITION[position])
+            steps.append(wait_step("SIM_ROUND_COMPLETE"))
+            if completed_round % 3 == 0:
+                mapping, mapping_state = shuffle_button_mapping(mapping, mapping_state)
+                encoded = "".join(str(color) for color in mapping)
+                steps.extend((
+                    wait_step(f"SIM_BUTTON_MAP:{completed_round + 1}:{encoded}"),
+                    wait_step("SIM_AUDIO_DONE:"),
+                    wait_step(f"SIM_BUTTON_DEMO_START:{completed_round + 1}:"),
+                    wait_step(f"SIM_BUTTON_DEMO_MAP:{completed_round + 1}:{encoded}"),
+                    wait_step(f"SIM_BUTTON_DEMO_END:{completed_round + 1}:"),
+                ))
+        steps.append(wait_step("SIM_TEST_BUTTON_REMAP_DONE"))
     else:
         raise ValueError(f"unknown scenario: {name}")
 
@@ -221,7 +282,7 @@ def expected_cues(name: str, plans: list[GamePlan]) -> list[int]:
         return [plans[0].first, plans[1].first]
     if name == "start-reset":
         return [plan.first for plan in plans]
-    if name == "servo-only-after-loss":
+    if name in ("servo-only-after-loss", "button-remap"):
         sequence = plans[0].symbols
         return [symbol for round_length in range(1, 5) for symbol in sequence[:round_length]]
     raise ValueError(f"unknown scenario: {name}")
@@ -315,7 +376,17 @@ class StateLock:
 
 
 def make_game_plans(name: str, seed: int, previous: int | None) -> list[GamePlan]:
-    lengths = (1, 1, 1) if name == "start-reset" else ((1, 1) if name == "gameover-stale-event" else ((4,) if name == "servo-only-after-loss" else (1,)))
+    scenario_lengths = {
+        "first-round": (1,),
+        "gameover-stale-event": (1, 1),
+        "servo-only-after-loss": (4,),
+        "start-reset": (1, 1, 1),
+        "button-remap": (4,),
+    }
+    try:
+        lengths = scenario_lengths[name]
+    except KeyError as error:
+        raise ValueError(f"unknown scenario: {name}") from error
     plans: list[GamePlan] = []
     current_seed = seed
     current_previous = previous
@@ -327,7 +398,7 @@ def make_game_plans(name: str, seed: int, previous: int | None) -> list[GamePlan
     return plans
 
 
-def build_wokwi_firmware(seed: int, previous: int | None,
+def build_wokwi_firmware(seed: int, previous: int | None, scenario: str,
                          environment: dict[str, str]) -> tuple[int, str]:
     arduino_cli = environment.get("ARDUINO_CLI") or shutil.which("arduino-cli")
     if not arduino_cli:
@@ -347,6 +418,8 @@ def build_wokwi_firmware(seed: int, previous: int | None,
             f"-DWOKWI_SIM -DWOKWI_INITIAL_SEED={seed}UL "
             f"-DWOKWI_PREVIOUS_FIRST_COLOR={previous_macro}"
         )
+        if scenario == "button-remap":
+            flags += " -DWOKWI_TEST_BUTTON_REMAP"
         command = [
             arduino_cli, "compile",
             "--fqbn", "arduino:avr:uno",
@@ -381,6 +454,12 @@ def write_diagram_variant(destination: Path, completion_delay_ms: int) -> None:
 def marker_values(serial: str, name: str) -> list[tuple[int, int]]:
     pattern = re.compile(rf"^{re.escape(name)}:(\d+):(\d+)\s*$", re.MULTILINE)
     return [(int(symbol), int(timestamp) & 0xFFFFFFFF) for symbol, timestamp in pattern.findall(serial)]
+
+
+def button_input_values(serial: str) -> list[tuple[int, int, int]]:
+    pattern = re.compile(r"^SIM_BUTTON_INPUT:([0-3]):([0-3]):(\d+)\s*$", re.MULTILINE)
+    return [(int(position), int(color), int(timestamp) & 0xFFFFFFFF)
+            for position, color, timestamp in pattern.findall(serial)]
 
 
 def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: int,
@@ -487,6 +566,114 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         if len(game_over) != 1 or len(extensions) != 1 or extensions[0] <= game_over[0]:
             raise RuntimeError("servo extension must occur only after the player-loss Game Over marker")
 
+    if name == "button-remap":
+        plan = plans[0]
+        mapping_by_round = mappings_through_round(plan.seed, 4)
+        expected_maps = [
+            (1, "".join(str(color) for color in mapping_by_round[1])),
+            (4, "".join(str(color) for color in mapping_by_round[4])),
+        ]
+        actual_maps = [(int(round_number), encoded)
+                       for round_number, encoded in re.findall(
+                           r"^SIM_BUTTON_MAP:(\d+):([0-3]{4})\s*$", serial, re.MULTILINE)]
+        if actual_maps != expected_maps:
+            raise RuntimeError(f"button mapping logs {actual_maps} do not match {expected_maps}")
+
+        expected_inputs = []
+        for round_number in range(1, 5):
+            mapping = mapping_by_round[round_number]
+            expected_inputs.extend(
+                (button_position_for_color(mapping, color), color)
+                for color in plan.symbols[:round_number]
+            )
+        button_inputs = button_input_values(serial)
+        actual_inputs = [(position, color) for position, color, _ in button_inputs]
+        if actual_inputs != expected_inputs:
+            raise RuntimeError(f"button position/color inputs {actual_inputs} do not match {expected_inputs}")
+
+        expected_led_assignments = []
+        for round_number in range(1, 5):
+            mapping = mapping_by_round[round_number]
+            round_colors = plan.symbols[:round_number]
+            expected_led_assignments.extend(
+                (color, button_position_for_color(mapping, color)) for color in round_colors
+            )
+            expected_led_assignments.extend(
+                (color, button_position_for_color(mapping, color)) for color in round_colors
+            )
+        actual_led_assignments = [
+            (int(color), int(position))
+            for color, position in re.findall(
+                r"^SIM_MAPPED_LED_ON:([0-3]):([0-3]):\d+\s*$", serial, re.MULTILINE
+            )
+        ]
+        if actual_led_assignments != expected_led_assignments:
+            raise RuntimeError(
+                "mapped LED cues/feedback must use each cue color's assigned button position: "
+                f"{actual_led_assignments} != {expected_led_assignments}"
+            )
+
+        presses = marker_values(serial, "SIM_INPUT_PRESS")
+        releases = marker_values(serial, "SIM_INPUT_RELEASE")
+        ready = [int(value) & 0xFFFFFFFF for value in
+                 re.findall(r"^SIM_INPUT_READY:(\d+)\s*$", serial, re.MULTILINE)]
+        completed = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
+        if not (len(ready) == len(completed) == 4 and
+                len(presses) == len(releases) == len(expected_inputs) and
+                [color for color, _ in presses] == [color for _, color in expected_inputs] and
+                [color for color, _ in releases] == [color for _, color in expected_inputs] and
+                serial.count("SIM_TEST_BUTTON_REMAP_DONE") == 1):
+            raise RuntimeError("button-remap transcript is missing mapped input/round completion events")
+        for button_input, press, release in zip(button_inputs, presses, releases):
+            position, color, button_at = button_input
+            if press != (color, button_at) or release[0] != color:
+                raise RuntimeError("button position, mapped color, and input markers disagree")
+            if ((release[1] - press[1]) & 0xFFFFFFFF) < 25:
+                raise RuntimeError(f"button {position + 1} input was released before the debounce interval")
+        map_lines = [i for i, line in enumerate(lines) if line.startswith("SIM_BUTTON_MAP:")]
+        round_completions = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
+        ready_lines = [i for i, line in enumerate(lines)
+                       if re.match(r"SIM_INPUT_READY:\d+", line)]
+        demo_starts = [(int(round_number), int(timestamp) & 0xFFFFFFFF)
+                       for round_number, timestamp in re.findall(
+                           r"^SIM_BUTTON_DEMO_START:(\d+):(\d+)\s*$", serial, re.MULTILINE)]
+        demo_ends = [(int(round_number), int(timestamp) & 0xFFFFFFFF)
+                     for round_number, timestamp in re.findall(
+                         r"^SIM_BUTTON_DEMO_END:(\d+):(\d+)\s*$", serial, re.MULTILINE)]
+        demo_maps = [(int(round_number), encoded)
+                     for round_number, encoded in re.findall(
+                         r"^SIM_BUTTON_DEMO_MAP:(\d+):([0-3]{4})\s*$", serial, re.MULTILINE)]
+        expected_demo_map = "".join(str(color) for color in mapping_by_round[4])
+        demo_duration = ((demo_ends[0][1] - demo_starts[0][1]) & 0xFFFFFFFF
+                         if demo_ends and demo_starts else 0)
+        if not (len(demo_starts) == len(demo_ends) == 1 and
+                demo_starts[0][0] == demo_ends[0][0] == 4 and
+                demo_maps == [(4, expected_demo_map)] and
+                demo_duration >= BUTTON_MAPPING_DEMO_MS):
+            raise RuntimeError("simultaneous LED map must match the new assignment and stay on for at least 5.5 seconds")
+        demo_start_lines = [i for i, line in enumerate(lines)
+                            if line.startswith("SIM_BUTTON_DEMO_START:")]
+        demo_map_lines = [i for i, line in enumerate(lines)
+                          if line.startswith("SIM_BUTTON_DEMO_MAP:")]
+        demo_end_lines = [i for i, line in enumerate(lines)
+                          if line.startswith("SIM_BUTTON_DEMO_END:")]
+        audio_done_lines = [i for i, line in enumerate(lines)
+                            if re.match(r"SIM_AUDIO_DONE:\d+", line)]
+        demo_order_checks = (
+            len(demo_map_lines) == 1,
+            map_lines[0] < ready_lines[0] < round_completions[0] <
+            round_completions[1] < round_completions[2] < map_lines[1],
+            any(round_completions[2] < done < demo_start_lines[0]
+                for done in audio_done_lines),
+            demo_start_lines[0] < demo_map_lines[0] < demo_end_lines[0] <
+            ready_lines[3] < round_completions[3],
+        )
+        if not all(demo_order_checks):
+            raise RuntimeError(
+                "simultaneous LED map must follow round 3 celebration and finish before round 4 input: "
+                f"{demo_order_checks}"
+            )
+
 
 def display_color(color: int | None) -> str:
     return "none" if color is None else f"{COLORS[color]}({color})"
@@ -527,10 +714,15 @@ def run_one(name: str, seed: int, previous: int | None, state_path: Path,
             f"--previous-first-color {replay_previous} --no-persist"
         ),
     }
+    if name == "button-remap":
+        manifest["expected_button_mappings"] = {
+            str(round_number): list(mapping)
+            for round_number, mapping in mappings_through_round(plans[0].seed, 4).items()
+        }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     environment = os.environ.copy()
-    build_code, build_output = build_wokwi_firmware(seed, previous, environment)
+    build_code, build_output = build_wokwi_firmware(seed, previous, name, environment)
     print(build_output, end="")
     if build_code != 0:
         manifest.update({"result": "build-failed", "build_exit_code": build_code})

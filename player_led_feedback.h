@@ -43,6 +43,57 @@ static inline bool playerLedSet(uint8_t symbol, bool on,
   return true;
 }
 
+static inline bool playerLedMappingIsValid(const uint8_t *buttonToColor) {
+  if (buttonToColor == 0) return false;
+
+  uint8_t seen = 0U;
+  for (uint8_t position = 0U; position < PLAYER_LED_SYMBOL_COUNT; ++position) {
+    const uint8_t color = buttonToColor[position];
+    if (color >= PLAYER_LED_SYMBOL_COUNT || (seen & (uint8_t)(1U << color)) != 0U) {
+      return false;
+    }
+    seen |= (uint8_t)(1U << color);
+  }
+  return true;
+}
+
+// Illuminate every physical button-position group at once using that
+// position's currently assigned cue color (not the strip's default color).
+static inline bool playerLedSetButtonMapping(const uint8_t *buttonToColor,
+                                             PlayerLedWritePixel writePixel) {
+  if (!playerLedMappingIsValid(buttonToColor) || writePixel == 0) return false;
+
+  for (uint8_t position = 0U; position < PLAYER_LED_SYMBOL_COUNT; ++position) {
+    const PlayerLedRgb color = PLAYER_LED_COLORS[buttonToColor[position]];
+    for (uint8_t offset = 0U; offset < PLAYER_LED_PIXELS_PER_SYMBOL; ++offset) {
+      const uint8_t pixel = (uint8_t)(position * PLAYER_LED_PIXELS_PER_SYMBOL + offset);
+      writePixel(pixel, color.red, color.green, color.blue);
+    }
+  }
+  return true;
+}
+
+// During normal play, light the physical button-position group assigned to a
+// cue color, rendering that group's pixels in the assigned color.
+static inline bool playerLedSetMappedCue(const uint8_t *buttonToColor,
+                                         uint8_t cueColor, bool on,
+                                         PlayerLedWritePixel writePixel) {
+  if (!playerLedMappingIsValid(buttonToColor) ||
+      cueColor >= PLAYER_LED_SYMBOL_COUNT || writePixel == 0) return false;
+
+  uint8_t cuePosition = 0U;
+  while (buttonToColor[cuePosition] != cueColor) ++cuePosition;
+  for (uint8_t position = 0U; position < PLAYER_LED_SYMBOL_COUNT; ++position) {
+    PlayerLedRgb color = {0U, 0U, 0U};
+    if (on && position == cuePosition) color = PLAYER_LED_COLORS[cueColor];
+    for (uint8_t offset = 0U; offset < PLAYER_LED_PIXELS_PER_SYMBOL; ++offset) {
+      const uint8_t pixel = (uint8_t)(position * PLAYER_LED_PIXELS_PER_SYMBOL + offset);
+      writePixel(pixel, color.red, color.green, color.blue);
+    }
+  }
+  return true;
+}
+
 static inline bool playerLedSetAllMappedColors(PlayerLedWritePixel writePixel) {
   if (writePixel == 0) return false;
 
