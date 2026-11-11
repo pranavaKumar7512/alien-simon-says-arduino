@@ -53,7 +53,6 @@ gcc -std=c99 -Wno-attributes tests/test_grove_jhd1804.c -o build/test_grove_jhd1
 gcc -std=c99 -Wno-attributes tests/test_dfplayer_mock.c -o build/test_dfplayer_mock && build/test_dfplayer_mock
 gcc -std=c99 tests/test_audio_completion_filter.c -o build/test_audio_completion_filter && build/test_audio_completion_filter
 gcc -std=c99 tests/test_game_over_audio_config.c -o build/test_game_over_audio_config && build/test_game_over_audio_config
-gcc -std=c99 tests/test_game_over_audio_config.c -o build/test_game_over_audio_config && build/test_game_over_audio_config
 gcc -std=c99 tests/test_player_led_feedback.c -o build/test_player_led_feedback && build/test_player_led_feedback
 gcc -std=c99 tests/test_first_color_journal.c -o build/test_first_color_journal && build/test_first_color_journal
 gcc -std=c99 tests/test_game_sequence.c -o build/test_game_sequence && build/test_game_sequence
