@@ -398,6 +398,11 @@ def make_game_plans(name: str, seed: int, previous: int | None) -> list[GamePlan
     return plans
 
 
+def scenario_firmware_dir(scenario: str, seed: int, previous: int | None = None) -> Path:
+    previous_tag = "none" if previous is None else str(previous)
+    return ROOT / "build" / "wokwi-tests" / "firmware" / f"{scenario}-{seed:08x}-prev-{previous_tag}"
+
+
 def build_wokwi_firmware(seed: int, previous: int | None, scenario: str,
                          environment: dict[str, str]) -> tuple[int, str]:
     arduino_cli = environment.get("ARDUINO_CLI") or shutil.which("arduino-cli")
@@ -411,7 +416,7 @@ def build_wokwi_firmware(seed: int, previous: int | None, scenario: str,
         for source in (ROOT / "alien-simon-says.ino", *ROOT.glob("*.h")):
             shutil.copy2(source, sketch_dir / source.name)
 
-        output_dir = ROOT / "build" / "wokwi"
+        output_dir = scenario_firmware_dir(scenario, seed, previous)
         output_dir.mkdir(parents=True, exist_ok=True)
         previous_macro = 255 if previous is None else previous
         flags = (
@@ -730,8 +735,10 @@ def run_one(name: str, seed: int, previous: int | None, state_path: Path,
         return False, previous
 
     cli = os.environ.get("WOKWI_CLI", "wokwi-cli")
+    firmware_elf = scenario_firmware_dir(name, seed, previous) / "alien-simon-says.ino.elf"
     command = [
         cli, ".",
+        "--elf", str(firmware_elf),
         "--diagram-file", str(diagram_path),
         "--scenario", str(scenario_path),
         "--timeout", str(TIMEOUT_MS[name]),

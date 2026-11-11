@@ -240,6 +240,15 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertEqual(RUNNER.expected_cues("start-reset", reset_plans),
                          [plan.first for plan in reset_plans])
 
+    def test_scenario_firmware_isolated_from_interactive_default(self):
+        seed = 0x12345678
+        isolated = RUNNER.scenario_firmware_dir("chunk-boundary", seed, None)
+        self.assertEqual(
+            isolated,
+            RUNNER.ROOT / "build" / "wokwi-tests" / "firmware" / "chunk-boundary-12345678-prev-none",
+        )
+        self.assertNotEqual(isolated, RUNNER.ROOT / "build" / "wokwi")
+
     def test_servo_scenario_answers_generated_sequence_then_loses(self):
         plan = RUNNER.game_plan(0x12345678, 0, 4)
         scenario = RUNNER.render_scenario("servo-only-after-loss", [plan])
