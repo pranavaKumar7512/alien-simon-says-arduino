@@ -541,6 +541,7 @@ def validate_game_over_timing(lines: list[str]) -> None:
             retract_done[0][0] < stopped[0][0]):
         raise RuntimeError("Game Over and servo transition markers are out of order")
 
+    forward_delta(extended[0][1], started[0][1], "servo extension after Game Over start")
     hold = forward_delta(retracted[0][1], extended[0][1], "servo hold")
     if hold < SERVO_GAME_OVER_HOLD_MS:
         raise RuntimeError(

@@ -736,6 +736,26 @@ class WokwiTestRunnerTests(unittest.TestCase):
         ]
         RUNNER.validate_transcript("gameover-stale-event", plans, 2300, "\n".join(lines))
 
+        extension_before_start = lines.copy()
+        extension_index = next(i for i, line in enumerate(extension_before_start)
+                               if line.startswith("SIM_SERVO_EXTEND:"))
+        retract_index = next(i for i, line in enumerate(extension_before_start)
+                             if line.startswith("SIM_SERVO_RETRACT:"))
+        done_index = next(i for i, line in enumerate(extension_before_start)
+                          if line.startswith("SIM_SERVO_RETRACT_DONE:"))
+        stop_index = next(i for i, line in enumerate(extension_before_start)
+                          if line.startswith("SIM_GAME_OVER_STOP:"))
+        premature_extend = game_over_start - 1
+        premature_retract = premature_extend + RUNNER.SERVO_GAME_OVER_HOLD_MS
+        premature_done = premature_retract + RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS
+        extension_before_start[extension_index] = f"SIM_SERVO_EXTEND:{premature_extend}"
+        extension_before_start[retract_index] = f"SIM_SERVO_RETRACT:{premature_retract}"
+        extension_before_start[done_index] = f"SIM_SERVO_RETRACT_DONE:{premature_done}"
+        extension_before_start[stop_index] = f"SIM_GAME_OVER_STOP:{premature_done + 1}"
+        with self.assertRaisesRegex(RuntimeError, "servo extension after Game Over start"):
+            RUNNER.validate_transcript("gameover-stale-event", plans, 2300,
+                                       "\n".join(extension_before_start))
+
         bad_order = lines.copy()
         start_index = next(i for i, line in enumerate(bad_order)
                            if line.startswith("SIM_GAME_OVER_START:"))
