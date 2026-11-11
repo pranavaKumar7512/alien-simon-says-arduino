@@ -538,7 +538,8 @@ static void beginGameOver(uint32_t now, bool playerLost) {
   gameState = GAME_OVER;
   Serial.println(F("GAME_OVER"));
 #if defined(WOKWI_SIM)
-  Serial.println(F("SIM_GAME_OVER_START"));
+  Serial.print(F("SIM_GAME_OVER_START:"));
+  Serial.println(gameOverStartedAt);
 #endif
   if (servoWriteGameOverTargetIfLost(playerLost, SERVO_GAME_OVER_EXTEND_ANGLE,
                                      writeServoPulseTicks)) {
@@ -546,7 +547,8 @@ static void beginGameOver(uint32_t now, bool playerLost) {
     servoIsExtended = true;
     servoRetractionPending = false;
 #if defined(WOKWI_SIM)
-    Serial.println(F("SIM_SERVO_EXTEND"));
+    Serial.print(F("SIM_SERVO_EXTEND:"));
+    Serial.println(servoExtendedAt);
 #endif
   }
 }
@@ -567,6 +569,15 @@ static void beginRound(uint32_t now) {
   stateStartedAt = now;
   Serial.println(F("ROUND_START"));
 }
+
+#if defined(WOKWI_SIM)
+static void logSimulationScoreState() {
+  Serial.print(F("SIM_SCORE_STATE:"));
+  Serial.print(completedRounds);
+  Serial.print(':');
+  Serial.println(bestScore);
+}
+#endif
 
 static void beginGame(uint32_t now) {
   startConsumed = true;
@@ -597,6 +608,7 @@ static void beginGame(uint32_t now) {
   Serial.println(F("SIM_GAME_START"));
   Serial.print(F("SIM_GAME_SEED:"));
   Serial.println(sequenceSeed);
+  logSimulationScoreState();
 #endif
   logButtonMapping(1UL);
   beginRound(now);
@@ -632,6 +644,9 @@ static void completeCorrectAnswer(uint32_t now) {
     bestScore = completedRounds;
     saveBestScore();
   }
+#if defined(WOKWI_SIM)
+  logSimulationScoreState();
+#endif
   Serial.println(F("ROUND_COMPLETE"));
 #if defined(WOKWI_SIM)
   Serial.println(F("SIM_ROUND_COMPLETE"));
@@ -940,21 +955,24 @@ void loop() {
         servoIsExtended = false;
         servoRetractionPending = true;
 #if defined(WOKWI_SIM)
-        Serial.println(F("SIM_SERVO_RETRACT"));
+        Serial.print(F("SIM_SERVO_RETRACT:"));
+        Serial.println(servoExtendedAt);
 #endif
       } else if (servoRetractionPending &&
                  elapsed(now, servoExtendedAt, SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS)) {
         // Time-based estimate only; this servo has no position feedback.
         servoRetractionPending = false;
 #if defined(WOKWI_SIM)
-        Serial.println(F("SIM_SERVO_RETRACT_DONE"));
+        Serial.print(F("SIM_SERVO_RETRACT_DONE:"));
+        Serial.println(now);
 #endif
       }
       if (elapsed(now, gameOverStartedAt, GAME_OVER_MIN_MS) &&
           !servoIsExtended && !servoRetractionPending) {
         stopAudio();
 #if defined(WOKWI_SIM)
-        Serial.println(F("SIM_GAME_OVER_STOP"));
+        Serial.print(F("SIM_GAME_OVER_STOP:"));
+        Serial.println(now);
 #endif
         const bool restartQueued = restartAfterGameOver;
         restartAfterGameOver = false;

@@ -293,38 +293,56 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertEqual(RUNNER.uniform_below(seed, 1), (0, seed))
 
 
-    def test_transcript_accepts_repeated_first_color_across_games(self):
+    def test_transcript_accepts_repeated_first_color_across_games_and_millis_wrap(self):
         plans = RUNNER.make_game_plans("gameover-stale-event", 1, None)
         self.assertEqual([plan.first for plan in plans], [1, 1])
-        serial = "\n".join((
+        cue_on = 0xFFFFF000
+        cue_off = (cue_on + 2000) & 0xFFFFFFFF
+        cue_gap = (cue_off + 180) & 0xFFFFFFFF
+        ready = (cue_gap + 20) & 0xFFFFFFFF
+        game_over_start = 0xFFFFFF00
+        servo_extend = (game_over_start + 1) & 0xFFFFFFFF
+        servo_retract = (servo_extend + RUNNER.SERVO_GAME_OVER_HOLD_MS) & 0xFFFFFFFF
+        retract_done = (servo_retract + RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS) & 0xFFFFFFFF
+        stop_offset = max(
+            RUNNER.GAME_OVER_MIN_MS,
+            1 + RUNNER.SERVO_GAME_OVER_HOLD_MS +
+            RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS + 1,
+        )
+        game_over_stop = (game_over_start + stop_offset) & 0xFFFFFFFF
+        next_cue_on = (game_over_stop + 100) & 0xFFFFFFFF
+        next_cue_off = (next_cue_on + 2000) & 0xFFFFFFFF
+        next_cue_gap = (next_cue_off + 180) & 0xFFFFFFFF
+        next_ready = (next_cue_gap + 20) & 0xFFFFFFFF
+        lines = [
             "SIM_GAME_START",
             f"SIM_GAME_SEED:{plans[0].seed}",
             f"SIM_FIRST_COLOR:{plans[0].first}",
-            "SIM_CUE_ON:1:100",
+            f"SIM_CUE_ON:1:{cue_on}",
             "SIM_AUDIO_START:2",
-            "SIM_CUE_OFF:1:2100",
-            "SIM_CUE_STOP_REQUEST:1:2100",
-            "SIM_CUE_GAP_DONE:1:2280",
-            "SIM_INPUT_READY:2280",
+            f"SIM_CUE_OFF:1:{cue_off}",
+            f"SIM_CUE_STOP_REQUEST:1:{cue_off}",
+            f"SIM_CUE_GAP_DONE:1:{cue_gap}",
+            f"SIM_INPUT_READY:{ready}",
             "WRONG_ANSWER",
             "SIM_AUDIO_START:5",
-            "SIM_GAME_OVER_START",
-            "SIM_SERVO_EXTEND",
+            f"SIM_GAME_OVER_START:{game_over_start}",
+            f"SIM_SERVO_EXTEND:{servo_extend}",
             "SIM_GAMEOVER_EVENT_DRAINED:5",
-            "SIM_SERVO_RETRACT",
-            "SIM_SERVO_RETRACT_DONE",
-            "SIM_GAME_OVER_STOP",
+            f"SIM_SERVO_RETRACT:{servo_retract}",
+            f"SIM_SERVO_RETRACT_DONE:{retract_done}",
+            f"SIM_GAME_OVER_STOP:{game_over_stop}",
             "SIM_GAME_START",
             f"SIM_GAME_SEED:{plans[1].seed}",
             f"SIM_FIRST_COLOR:{plans[1].first}",
-            "SIM_CUE_ON:1:2400",
+            f"SIM_CUE_ON:1:{next_cue_on}",
             "SIM_AUDIO_START:2",
-            "SIM_CUE_OFF:1:4400",
-            "SIM_CUE_STOP_REQUEST:1:4400",
-            "SIM_CUE_GAP_DONE:1:4580",
-            "SIM_INPUT_READY:4580",
-        ))
-        RUNNER.validate_transcript("gameover-stale-event", plans, 2300, serial)
+            f"SIM_CUE_OFF:1:{next_cue_off}",
+            f"SIM_CUE_STOP_REQUEST:1:{next_cue_off}",
+            f"SIM_CUE_GAP_DONE:1:{next_cue_gap}",
+            f"SIM_INPUT_READY:{next_ready}",
+        ]
+        RUNNER.validate_transcript("gameover-stale-event", plans, 2300, "\n".join(lines))
 
     def test_randomized_scenarios_use_positioned_buttons(self):
         first_plan = RUNNER.game_plan(0x12345678, None, 4)
@@ -351,7 +369,10 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertIn(f"SIM_GAME_SEED:{reset_plans[1].seed}", reset_yaml)
         self.assertEqual(reset_yaml.count("part-id: button-start"), 6)
         self.assertEqual(RUNNER.expected_cues("start-reset", reset_plans),
-                         [plan.first for plan in reset_plans])
+                         [reset_plans[0].first, *reset_plans[0].symbols,
+                          reset_plans[1].first, reset_plans[2].first])
+        self.assertIn("SIM_SCORE_STATE:1:", reset_yaml)
+        self.assertEqual(reset_yaml.count("SIM_SCORE_STATE:0:"), 2)
 
         chunk_plan = RUNNER.make_game_plans("chunk-boundary", 0x12345678, None)[0]
         chunk_yaml = RUNNER.render_scenario("chunk-boundary", [chunk_plan])
@@ -403,6 +424,26 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertEqual(RUNNER.forward_delta(0x00000020, 0xFFFFFFF0, "rollover"), 0x30)
         with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
             RUNNER.forward_delta(100, 200, "reversed")
+
+    def test_wokwi_timing_thresholds_match_firmware_constants(self):
+        servo_header = (RUNNER.ROOT / "servo_celebration_config.h").read_text(encoding="utf-8")
+        wokwi_block = re.search(
+            r"#if defined\(WOKWI_SIM\)(.*?)#else", servo_header, re.DOTALL
+        )
+        self.assertIsNotNone(wokwi_block)
+        hold = re.search(r"#define SERVO_GAME_OVER_HOLD_MS (\d+)UL", wokwi_block.group(1))
+        allowance = re.search(
+            r"#define SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS (\d+)UL", wokwi_block.group(1)
+        )
+        self.assertIsNotNone(hold)
+        self.assertIsNotNone(allowance)
+        self.assertEqual(int(hold.group(1)), RUNNER.SERVO_GAME_OVER_HOLD_MS)
+        self.assertEqual(int(allowance.group(1)), RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS)
+
+        sketch = (RUNNER.ROOT / "alien-simon-says.ino").read_text(encoding="utf-8")
+        minimum = re.search(r"static const uint32_t GAME_OVER_MIN_MS = (\d+)UL;", sketch)
+        self.assertIsNotNone(minimum)
+        self.assertEqual(int(minimum.group(1)), RUNNER.GAME_OVER_MIN_MS)
 
     def test_replay_command_is_project_rooted_and_shell_quoted(self):
         original_root = RUNNER.ROOT
@@ -485,23 +526,17 @@ class WokwiTestRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "light duration"):
             RUNNER.validate_transcript("first-round", [plan], 250, short_light)
 
-    def test_start_reset_transcript_restarts_and_queues_during_servo_return(self):
+    def test_start_reset_transcript_proves_score_reset_and_queues_during_return(self):
         plans = RUNNER.make_game_plans("start-reset", 0x12345678, None)
-        lines = []
-        cue_times = (100, 2400, 4700)
-        for index, plan in enumerate(plans):
-            symbol = plan.first
-            start = cue_times[index]
-            if index == 0:
-                lines.extend(("SIM_GAME_START", f"SIM_GAME_SEED:{plan.seed}",
-                              f"SIM_FIRST_COLOR:{symbol}"))
-            elif index == 1:
-                lines.extend(("SIM_GAME_RESET", "SIM_GAME_START",
-                              f"SIM_GAME_SEED:{plan.seed}", f"SIM_FIRST_COLOR:{symbol}"))
-            else:
-                lines.extend(("SIM_SERVO_RETRACT_DONE", "SIM_GAME_OVER_STOP",
-                              "SIM_GAME_RESET", "SIM_GAME_START",
-                              f"SIM_GAME_SEED:{plan.seed}", f"SIM_FIRST_COLOR:{symbol}"))
+        self.assertEqual(len(plans[0].symbols), 2)
+        lines = [
+            "SIM_GAME_START",
+            f"SIM_GAME_SEED:{plans[0].seed}",
+            f"SIM_SCORE_STATE:0:0",
+            f"SIM_FIRST_COLOR:{plans[0].first}",
+        ]
+
+        def add_cue(symbol, start):
             lines.extend((
                 f"SIM_CUE_ON:{symbol}:{start}",
                 f"SIM_AUDIO_START:{symbol + 1}",
@@ -509,15 +544,62 @@ class WokwiTestRunnerTests(unittest.TestCase):
                 f"SIM_CUE_STOP_REQUEST:{symbol}:{start + 2000}",
                 f"SIM_CUE_GAP_DONE:{symbol}:{start + 2180}",
             ))
-            if index == 0:
-                lines.append("SIM_INPUT_READY:2300")
-            elif index == 1:
-                lines.extend(("SIM_INPUT_READY:4600", "WRONG_ANSWER",
-                              "SIM_GAME_OVER_START", "SIM_SERVO_EXTEND",
-                              "SIM_GAME_RESET_QUEUED", "SIM_SERVO_RETRACT"))
-            else:
-                lines.append("SIM_INPUT_READY:6900")
-        RUNNER.validate_transcript("start-reset", plans, 2300, "\n".join(lines))
+
+        add_cue(plans[0].first, 100)
+        lines.extend((
+            "SIM_INPUT_READY:2300",
+            f"SIM_BUTTON_INPUT:{plans[0].first}:{plans[0].first}:2350",
+            f"SIM_INPUT_PRESS:{plans[0].first}:2350",
+            f"SIM_INPUT_RELEASE:{plans[0].first}:2410",
+            "SIM_SCORE_STATE:1:1",
+            "SIM_ROUND_COMPLETE",
+        ))
+        add_cue(plans[0].first, 2500)
+        add_cue(plans[0].symbols[1], 4680)
+        lines.append("SIM_INPUT_READY:6880")
+
+        lines.extend((
+            "SIM_GAME_RESET",
+            "SIM_GAME_START",
+            f"SIM_GAME_SEED:{plans[1].seed}",
+            "SIM_SCORE_STATE:0:1",
+            f"SIM_FIRST_COLOR:{plans[1].first}",
+        ))
+        add_cue(plans[1].first, 7100)
+        game_over_start = 9400
+        servo_extend = game_over_start + 1
+        servo_retract = servo_extend + RUNNER.SERVO_GAME_OVER_HOLD_MS
+        retract_done = servo_retract + RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS
+        game_over_stop = max(game_over_start + RUNNER.GAME_OVER_MIN_MS, retract_done + 1)
+        queued_cue_on = game_over_stop + 98
+        lines.extend((
+            "SIM_INPUT_READY:9300",
+            "WRONG_ANSWER",
+            "SIM_AUDIO_START:5",
+            f"SIM_GAME_OVER_START:{game_over_start}",
+            f"SIM_SERVO_EXTEND:{servo_extend}",
+            "SIM_GAME_RESET_QUEUED",
+            f"SIM_SERVO_RETRACT:{servo_retract}",
+            f"SIM_SERVO_RETRACT_DONE:{retract_done}",
+            f"SIM_GAME_OVER_STOP:{game_over_stop}",
+            "SIM_GAME_RESET",
+            "SIM_GAME_START",
+            f"SIM_GAME_SEED:{plans[2].seed}",
+            "SIM_SCORE_STATE:0:1",
+            f"SIM_FIRST_COLOR:{plans[2].first}",
+        ))
+        add_cue(plans[2].first, queued_cue_on)
+        lines.append(f"SIM_INPUT_READY:{queued_cue_on + 2200}")
+        serial = "\n".join(lines)
+        RUNNER.validate_transcript("start-reset", plans, 2300, serial)
+
+        zero_before_reset = serial.replace("SIM_SCORE_STATE:1:1", "SIM_SCORE_STATE:0:1", 1)
+        with self.assertRaisesRegex(RuntimeError, "score telemetry"):
+            RUNNER.validate_transcript("start-reset", plans, 2300, zero_before_reset)
+
+        lost_best = serial.replace("SIM_SCORE_STATE:0:1", "SIM_SCORE_STATE:0:0", 1)
+        with self.assertRaisesRegex(RuntimeError, "score telemetry"):
+            RUNNER.validate_transcript("start-reset", plans, 2300, lost_best)
 
     def test_chunk_boundary_transcript_requires_all_eleven_released_answers(self):
         plans = RUNNER.make_game_plans("chunk-boundary", 0xA341316C, None)
@@ -585,14 +667,18 @@ class WokwiTestRunnerTests(unittest.TestCase):
             lines.append(f"SIM_INPUT_READY:{100 + cue_index * 2180 + 100}")
             if completed_round < 4:
                 lines.append("SIM_ROUND_COMPLETE")
+        game_over_start = 23000
+        servo_extend = game_over_start + 1
+        servo_retract = servo_extend + RUNNER.SERVO_GAME_OVER_HOLD_MS
+        retract_done = servo_retract + RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS
         lines.extend((
             "WRONG_ANSWER",
             "SIM_AUDIO_START:5",
-            "SIM_GAME_OVER_START",
-            "SIM_SERVO_EXTEND",
-            "SIM_SERVO_RETRACT",
-            "SIM_SERVO_RETRACT_DONE",
-            "SIM_GAME_OVER_STOP",
+            f"SIM_GAME_OVER_START:{game_over_start}",
+            f"SIM_SERVO_EXTEND:{servo_extend}",
+            f"SIM_SERVO_RETRACT:{servo_retract}",
+            f"SIM_SERVO_RETRACT_DONE:{retract_done}",
+            f"SIM_GAME_OVER_STOP:{max(game_over_start + RUNNER.GAME_OVER_MIN_MS, retract_done + 1)}",
         ))
         RUNNER.validate_transcript("servo-only-after-loss", plans, 2300, "\n".join(lines))
 
@@ -606,14 +692,20 @@ class WokwiTestRunnerTests(unittest.TestCase):
             RUNNER.validate_transcript("servo-only-after-loss", plans, 2300, "\n".join(wrong_chord))
 
         bad_order = lines.copy()
-        bad_order.insert(2, "SIM_SERVO_EXTEND")
-        with self.assertRaisesRegex(RuntimeError, "servo must stay still"):
+        bad_order.insert(2, "SIM_SERVO_EXTEND:1")
+        with self.assertRaisesRegex(RuntimeError, "one timestamped"):
             RUNNER.validate_transcript("servo-only-after-loss", plans, 2300, "\n".join(bad_order))
 
-    def test_gameover_transcript_requires_completion_drain_and_servo_return(self):
+    def test_gameover_transcript_checks_completion_and_transition_durations(self):
         plans = RUNNER.make_game_plans("gameover-stale-event", 0x12345678, None)
         first, second = plans
         game_over_track = 5  # AUDIO_GAME_OVER_LOSS_TRACK in audio_track_config.h.
+        game_over_start = 2400
+        servo_extend = game_over_start + 1
+        servo_retract = servo_extend + RUNNER.SERVO_GAME_OVER_HOLD_MS
+        retract_done = servo_retract + RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS
+        game_over_stop = max(game_over_start + RUNNER.GAME_OVER_MIN_MS, retract_done + 1)
+        second_cue_on = game_over_stop + 100
         lines = [
             "SIM_GAME_START",
             f"SIM_GAME_SEED:{first.seed}",
@@ -623,40 +715,92 @@ class WokwiTestRunnerTests(unittest.TestCase):
             f"SIM_CUE_OFF:{first.first}:2100",
             f"SIM_CUE_STOP_REQUEST:{first.first}:2100",
             f"SIM_CUE_GAP_DONE:{first.first}:2280",
-            "SIM_INPUT_READY:2280",
+            "SIM_INPUT_READY:2300",
             "WRONG_ANSWER",
             f"SIM_AUDIO_START:{game_over_track}",
-            "SIM_GAME_OVER_START",
-            "SIM_SERVO_EXTEND",
+            f"SIM_GAME_OVER_START:{game_over_start}",
+            f"SIM_SERVO_EXTEND:{servo_extend}",
             f"SIM_GAMEOVER_EVENT_DRAINED:{game_over_track}",
-            "SIM_SERVO_RETRACT",
-            "SIM_SERVO_RETRACT_DONE",
-            "SIM_GAME_OVER_STOP",
+            f"SIM_SERVO_RETRACT:{servo_retract}",
+            f"SIM_SERVO_RETRACT_DONE:{retract_done}",
+            f"SIM_GAME_OVER_STOP:{game_over_stop}",
             "SIM_GAME_START",
             f"SIM_GAME_SEED:{second.seed}",
             f"SIM_FIRST_COLOR:{second.first}",
-            f"SIM_CUE_ON:{second.first}:10000",
+            f"SIM_CUE_ON:{second.first}:{second_cue_on}",
             f"SIM_AUDIO_START:{second.first + 1}",
-            f"SIM_CUE_OFF:{second.first}:12000",
-            f"SIM_CUE_STOP_REQUEST:{second.first}:12000",
-            f"SIM_CUE_GAP_DONE:{second.first}:12180",
-            "SIM_INPUT_READY:12180",
+            f"SIM_CUE_OFF:{second.first}:{second_cue_on + 2000}",
+            f"SIM_CUE_STOP_REQUEST:{second.first}:{second_cue_on + 2000}",
+            f"SIM_CUE_GAP_DONE:{second.first}:{second_cue_on + 2180}",
+            f"SIM_INPUT_READY:{second_cue_on + 2200}",
         ]
         RUNNER.validate_transcript("gameover-stale-event", plans, 2300, "\n".join(lines))
 
+        extension_before_start = lines.copy()
+        extension_index = next(i for i, line in enumerate(extension_before_start)
+                               if line.startswith("SIM_SERVO_EXTEND:"))
+        retract_index = next(i for i, line in enumerate(extension_before_start)
+                             if line.startswith("SIM_SERVO_RETRACT:"))
+        done_index = next(i for i, line in enumerate(extension_before_start)
+                          if line.startswith("SIM_SERVO_RETRACT_DONE:"))
+        stop_index = next(i for i, line in enumerate(extension_before_start)
+                          if line.startswith("SIM_GAME_OVER_STOP:"))
+        premature_extend = game_over_start - 1
+        premature_retract = premature_extend + RUNNER.SERVO_GAME_OVER_HOLD_MS
+        premature_done = premature_retract + RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS
+        extension_before_start[extension_index] = f"SIM_SERVO_EXTEND:{premature_extend}"
+        extension_before_start[retract_index] = f"SIM_SERVO_RETRACT:{premature_retract}"
+        extension_before_start[done_index] = f"SIM_SERVO_RETRACT_DONE:{premature_done}"
+        extension_before_start[stop_index] = f"SIM_GAME_OVER_STOP:{premature_done + 1}"
+        with self.assertRaisesRegex(RuntimeError, "servo extension after Game Over start"):
+            RUNNER.validate_transcript("gameover-stale-event", plans, 2300,
+                                       "\n".join(extension_before_start))
+
         bad_order = lines.copy()
-        start_index = bad_order.index("SIM_GAME_OVER_START")
+        start_index = next(i for i, line in enumerate(bad_order)
+                           if line.startswith("SIM_GAME_OVER_START:"))
         drain_index = next(i for i, line in enumerate(bad_order)
                            if line.startswith("SIM_GAMEOVER_EVENT_DRAINED:"))
         bad_order[start_index], bad_order[drain_index] = bad_order[drain_index], bad_order[start_index]
-        with self.assertRaisesRegex(RuntimeError, "Game Over completion"):
+        with self.assertRaisesRegex(RuntimeError, "out of order|Game Over completion"):
             RUNNER.validate_transcript("gameover-stale-event", plans, 2300, "\n".join(bad_order))
 
         accepted = lines.copy()
-        start_index = accepted.index("SIM_GAME_OVER_START")
+        start_index = next(i for i, line in enumerate(accepted)
+                           if line.startswith("SIM_GAME_OVER_START:"))
         accepted.insert(start_index + 1, f"SIM_AUDIO_DONE:{game_over_track}")
         with self.assertRaisesRegex(RuntimeError, "must be drained"):
             RUNNER.validate_transcript("gameover-stale-event", plans, 2300, "\n".join(accepted))
+
+        too_short_game_over = lines.copy()
+        stop_index = next(i for i, line in enumerate(too_short_game_over)
+                          if line.startswith("SIM_GAME_OVER_STOP:"))
+        too_short_game_over[stop_index] = (
+            f"SIM_GAME_OVER_STOP:{game_over_start + RUNNER.GAME_OVER_MIN_MS - 1}"
+        )
+        with self.assertRaisesRegex(RuntimeError, "Game Over duration"):
+            RUNNER.validate_transcript("gameover-stale-event", plans, 2300,
+                                       "\n".join(too_short_game_over))
+
+        too_short_hold = lines.copy()
+        retract_index = next(i for i, line in enumerate(too_short_hold)
+                             if line.startswith("SIM_SERVO_RETRACT:"))
+        too_short_hold[retract_index] = (
+            f"SIM_SERVO_RETRACT:{servo_extend + RUNNER.SERVO_GAME_OVER_HOLD_MS - 1}"
+        )
+        with self.assertRaisesRegex(RuntimeError, "servo hold"):
+            RUNNER.validate_transcript("gameover-stale-event", plans, 2300,
+                                       "\n".join(too_short_hold))
+
+        too_short_return = lines.copy()
+        done_index = next(i for i, line in enumerate(too_short_return)
+                          if line.startswith("SIM_SERVO_RETRACT_DONE:"))
+        too_short_return[done_index] = (
+            f"SIM_SERVO_RETRACT_DONE:{servo_retract + RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS - 1}"
+        )
+        with self.assertRaisesRegex(RuntimeError, "servo return allowance"):
+            RUNNER.validate_transcript("gameover-stale-event", plans, 2300,
+                                       "\n".join(too_short_return))
 
     def test_state_file_round_trip_and_diagram_override(self):
         import json
