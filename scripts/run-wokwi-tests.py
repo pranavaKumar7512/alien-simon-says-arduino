@@ -20,17 +20,19 @@ ROOT = Path(__file__).resolve().parents[1]
 STATE_DEFAULT = ROOT / ".wokwi-sequence-state.json"
 COLORS = ("red", "green", "blue", "yellow")
 BUTTONS = tuple(f"button-{color}" for color in COLORS)
-SCENARIOS = ("first-round", "gameover-stale-event", "servo-only-after-loss")
+SCENARIOS = ("first-round", "gameover-stale-event", "servo-only-after-loss", "start-reset")
 UNSET = object()
 TIMEOUT_MS = {
     "first-round": 20000,
     "gameover-stale-event": 24000,
     "servo-only-after-loss": 45000,
+    "start-reset": 45000,
 }
 MOCK_DELAY_MS = {
     "first-round": 250,  # natural audio completion must not shorten the 2 s light cue
     "gameover-stale-event": 2300,  # sequence audio is still active at the 2 s stop boundary
     "servo-only-after-loss": 2300,
+    "start-reset": 2300,
 }
 
 
@@ -175,6 +177,35 @@ def render_scenario(name: str, plans: list[GamePlan]) -> str:
         start_game(steps, plans[1])
         steps.append(wait_step("SIM_INPUT_READY"))
 
+    elif name == "start-reset":
+        steps.append(wait_step("SIM_INPUT_READY"))
+        press_and_release(steps, "button-start")
+        steps.extend((
+            wait_step("SIM_GAME_RESET"),
+            wait_step("SIM_GAME_START"),
+            wait_step(f"SIM_GAME_SEED:{plans[1].seed}"),
+            wait_step(f"SIM_FIRST_COLOR:{plans[1].first}"),
+            wait_step("SIM_INPUT_READY"),
+        ))
+        wrong = (plans[1].first + 1) % len(COLORS)
+        press_and_release(steps, BUTTONS[wrong])
+        steps.extend((
+            wait_step("SIM_GAME_OVER_START"),
+            wait_step("SIM_SERVO_EXTEND"),
+        ))
+        press_and_release(steps, "button-start")
+        steps.extend((
+            wait_step("SIM_GAME_RESET_QUEUED"),
+            wait_step("SIM_SERVO_RETRACT"),
+            wait_step("SIM_SERVO_RETRACT_DONE"),
+            wait_step("SIM_GAME_OVER_STOP"),
+            wait_step("SIM_GAME_RESET"),
+            wait_step("SIM_GAME_START"),
+            wait_step(f"SIM_GAME_SEED:{plans[2].seed}"),
+            wait_step(f"SIM_FIRST_COLOR:{plans[2].first}"),
+            wait_step("SIM_INPUT_READY"),
+        ))
+
     elif name == "servo-only-after-loss":
         symbols = plans[0].symbols
         for completed_round in range(1, 4):
@@ -209,6 +240,8 @@ def expected_cues(name: str, plans: list[GamePlan]) -> list[int]:
         return [plans[0].first]
     if name == "gameover-stale-event":
         return [plans[0].first, plans[1].first]
+    if name == "start-reset":
+        return [plan.first for plan in plans]
     if name == "servo-only-after-loss":
         sequence = plans[0].symbols
         return [symbol for round_length in range(1, 5) for symbol in sequence[:round_length]]
@@ -303,7 +336,7 @@ class StateLock:
 
 
 def make_game_plans(name: str, seed: int, previous: int | None) -> list[GamePlan]:
-    lengths = (1, 1) if name == "gameover-stale-event" else ((4,) if name == "servo-only-after-loss" else (1,))
+    lengths = (1, 1, 1) if name == "start-reset" else ((1, 1) if name == "gameover-stale-event" else ((4,) if name == "servo-only-after-loss" else (1,)))
     plans: list[GamePlan] = []
     current_seed = seed
     current_previous = previous
@@ -455,6 +488,19 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                               if line.strip() == "SIM_ROUND_COMPLETE"), None)
         if complete_line is None or complete_line <= release_line:
             raise RuntimeError("answer must be committed only after its debounced release")
+
+    if name == "start-reset":
+        reset_lines = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_RESET"]
+        game_starts = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_START"]
+        queued = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_RESET_QUEUED"]
+        game_over = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_START"]
+        retract_done = [i for i, line in enumerate(lines) if line.strip() == "SIM_SERVO_RETRACT_DONE"]
+        game_over_stop = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_STOP"]
+        if not (len(reset_lines) == 2 and len(game_starts) == 3 and len(queued) == 1 and
+                len(game_over) == 1 and len(retract_done) == 1 and len(game_over_stop) == 1 and
+                game_starts[0] < reset_lines[0] < game_starts[1] < game_over[0] < queued[0] <
+                retract_done[0] < game_over_stop[0] < reset_lines[1] < game_starts[2]):
+            raise RuntimeError("Start must reset active play and defer a queued reset until servo return finishes")
 
     if name == "servo-only-after-loss":
         game_over = [i for i, line in enumerate(lines) if line.strip() == "SIM_GAME_OVER_START"]

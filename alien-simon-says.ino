@@ -82,6 +82,7 @@ uint8_t cueSymbol = 0;
 uint8_t pendingAnswer = 0xFF;
 uint8_t idlePage = 0;
 bool startConsumed = false;
+bool restartAfterGameOver = false;
 bool audioRunning = false;
 bool audioNeedsInitialStop = true; // DFPlayer may outlive an MCU reset
 bool audioFinished = false;
@@ -501,6 +502,22 @@ static void beginGame(uint32_t now) {
   beginRound(now);
 }
 
+static void restartActiveGame(uint32_t now) {
+  stopAudio();
+  allLedsOff();
+  gameState = IDLE;
+  completedRounds = 0;
+  roundLength = 1;
+  celebrationWaitingForAudio = false;
+  firstColorRecordedForGame = false;
+  restartAfterGameOver = false;
+  Serial.println(F("GAME_RESET"));
+#if defined(WOKWI_SIM)
+  Serial.println(F("SIM_GAME_RESET"));
+#endif
+  beginGame(now);
+}
+
 static void enterIdle(uint32_t now) {
   stopAudio();
   allLedsOff();
@@ -620,14 +637,29 @@ void loop() {
     showIdlePage(now);
     Serial.println(F("READY"));
   }
-  if (!buttons[4].pressed) startConsumed = false;
-  else if (gameState != IDLE) startConsumed = true; // Start is ignored while a run is active
+  bool startActionHandled = false;
+  if (!buttons[4].pressed) {
+    startConsumed = false;
+  } else if (!startConsumed) {
+    startActionHandled = true;
+    startConsumed = true;
+    if (gameState == IDLE) {
+      beginGame(now);
+    } else if (gameState == GAME_OVER) {
+      // Keep the loss/servo return sequence intact; start a fresh game afterward.
+      restartAfterGameOver = true;
+      Serial.println(F("GAME_RESET_QUEUED"));
+#if defined(WOKWI_SIM)
+      Serial.println(F("SIM_GAME_RESET_QUEUED"));
+#endif
+    } else {
+      restartActiveGame(now);
+    }
+  }
 
   switch (gameState) {
     case IDLE:
-      if (buttons[4].pressed && !startConsumed) {
-        beginGame(now);
-      } else if (elapsed(now, idlePageStartedAt, SCORE_PAGE_MS)) {
+      if (!startActionHandled && elapsed(now, idlePageStartedAt, SCORE_PAGE_MS)) {
         idlePage ^= 1U;
         showIdlePage(now);
       }
@@ -788,7 +820,16 @@ void loop() {
 #if defined(WOKWI_SIM)
         Serial.println(F("SIM_GAME_OVER_STOP"));
 #endif
+        const bool restartQueued = restartAfterGameOver;
+        restartAfterGameOver = false;
         enterIdle(now);
+        if (restartQueued) {
+          Serial.println(F("GAME_RESET"));
+#if defined(WOKWI_SIM)
+          Serial.println(F("SIM_GAME_RESET"));
+#endif
+          beginGame(millis());
+        }
       }
       break;
   }

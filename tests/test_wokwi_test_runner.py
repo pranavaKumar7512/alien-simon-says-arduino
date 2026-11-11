@@ -48,6 +48,14 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertIn(f"SIM_GAME_SEED:{stale_plans[1].seed}", stale_yaml)
         self.assertIn(f"SIM_FIRST_COLOR:{stale_plans[1].first}", stale_yaml)
 
+        reset_plans = RUNNER.make_game_plans("start-reset", 0x12345678, None)
+        reset_yaml = RUNNER.render_scenario("start-reset", reset_plans)
+        self.assertIn("SIM_GAME_RESET", reset_yaml)
+        self.assertIn(f"SIM_GAME_SEED:{reset_plans[1].seed}", reset_yaml)
+        self.assertEqual(reset_yaml.count("part-id: button-start"), 6)
+        self.assertEqual(RUNNER.expected_cues("start-reset", reset_plans),
+                         [plan.first for plan in reset_plans])
+
     def test_servo_scenario_answers_generated_sequence_then_loses(self):
         plan = RUNNER.game_plan(0x12345678, 0, 4)
         scenario = RUNNER.render_scenario("servo-only-after-loss", [plan])
@@ -98,6 +106,39 @@ class WokwiTestRunnerTests(unittest.TestCase):
         short_light = short_light.replace(f"SIM_CUE_GAP_DONE:{symbol}:2280", f"SIM_CUE_GAP_DONE:{symbol}:2279")
         with self.assertRaisesRegex(RuntimeError, "light duration"):
             RUNNER.validate_transcript("first-round", [plan], 250, short_light)
+
+    def test_start_reset_transcript_restarts_and_queues_during_servo_return(self):
+        plans = RUNNER.make_game_plans("start-reset", 0x12345678, None)
+        lines = []
+        cue_times = (100, 2400, 4700)
+        for index, plan in enumerate(plans):
+            symbol = plan.first
+            start = cue_times[index]
+            if index == 0:
+                lines.extend(("SIM_GAME_START", f"SIM_GAME_SEED:{plan.seed}",
+                              f"SIM_FIRST_COLOR:{symbol}"))
+            elif index == 1:
+                lines.extend(("SIM_GAME_RESET", "SIM_GAME_START",
+                              f"SIM_GAME_SEED:{plan.seed}", f"SIM_FIRST_COLOR:{symbol}"))
+            else:
+                lines.extend(("SIM_SERVO_RETRACT_DONE", "SIM_GAME_OVER_STOP",
+                              "SIM_GAME_RESET", "SIM_GAME_START",
+                              f"SIM_GAME_SEED:{plan.seed}", f"SIM_FIRST_COLOR:{symbol}"))
+            lines.extend((
+                f"SIM_CUE_ON:{symbol}:{start}",
+                f"SIM_AUDIO_START:{symbol + 1}",
+                f"SIM_CUE_OFF:{symbol}:{start + 2000}",
+                f"SIM_CUE_STOP_REQUEST:{symbol}:{start + 2000}",
+                f"SIM_CUE_GAP_DONE:{symbol}:{start + 2180}",
+            ))
+            if index == 0:
+                lines.append("SIM_INPUT_READY:2300")
+            elif index == 1:
+                lines.extend(("SIM_GAME_OVER_START", "SIM_SERVO_EXTEND",
+                              "SIM_GAME_RESET_QUEUED", "SIM_SERVO_RETRACT"))
+            else:
+                lines.append("SIM_INPUT_READY:6900")
+        RUNNER.validate_transcript("start-reset", plans, 2300, "\n".join(lines))
 
     def test_state_file_round_trip_and_diagram_override(self):
         with tempfile.TemporaryDirectory() as temporary:
