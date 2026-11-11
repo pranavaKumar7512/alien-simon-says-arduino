@@ -208,6 +208,44 @@ class WokwiTestRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "at least 5.5 seconds"):
             RUNNER.validate_transcript("button-remap", plans, 2300, too_short)
 
+    def test_button_remap_rejects_later_cue_before_shifted_round_answer(self):
+        plan = RUNNER.game_plan(0x12345678, None, 4)
+        lines = button_remap_transcript(plan).splitlines()
+        shifted = []
+        for index, line in enumerate(lines):
+            shift_timestamp = (
+                line.startswith((
+                    "SIM_INPUT_READY:", "SIM_BUTTON_INPUT:", "SIM_INPUT_PRESS:",
+                    "SIM_INPUT_RELEASE:", "SIM_BUTTON_DEMO_START:", "SIM_BUTTON_DEMO_END:",
+                )) or
+                (line.startswith("SIM_MAPPED_LED_ON:") and
+                 index + 1 < len(lines) and lines[index + 1].startswith("SIM_BUTTON_INPUT:"))
+            )
+            if shift_timestamp:
+                prefix, timestamp = line.rsplit(":", 1)
+                line = f"{prefix}:{(int(timestamp) + 30000) & 0xFFFFFFFF}"
+            shifted.append(line)
+
+        self.assertIn("SIM_INPUT_READY:32330", shifted)
+        self.assertIn(f"SIM_CUE_ON:{plan.symbols[0]}:2580", shifted)
+        with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
+            RUNNER.validate_transcript("button-remap", [plan], 2300, "\n".join(shifted))
+
+    def test_round_four_cue_timestamp_must_follow_map_demo_end(self):
+        plan = RUNNER.game_plan(0x12345678, None, 4)
+        serial = button_remap_transcript(plan)
+        round_four_cue = re.findall(r"^SIM_CUE_ON:[0-3]:(\d+)$", serial, re.MULTILINE)[6]
+        demo_start, demo_end = re.findall(
+            r"SIM_BUTTON_DEMO_(?:START|END):4:(\d+)", serial
+        )
+        late_demo_end = serial.replace(
+            f"SIM_BUTTON_DEMO_END:4:{demo_end}",
+            f"SIM_BUTTON_DEMO_END:4:{int(round_four_cue) + 1}",
+        )
+        self.assertGreater(int(round_four_cue) + 1 - int(demo_start), RUNNER.BUTTON_MAPPING_DEMO_MS)
+        with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
+            RUNNER.validate_transcript("button-remap", [plan], 2300, late_demo_end)
+
     def test_button_remap_transcript_timestamps_wrap_millis(self):
         plan = RUNNER.game_plan(0x12345678, None, 4)
         serial = button_remap_transcript(plan)

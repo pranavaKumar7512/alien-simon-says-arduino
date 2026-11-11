@@ -829,6 +829,7 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         release_lines = [i for i, line in enumerate(lines)
                          if re.match(r"SIM_INPUT_RELEASE:[0-3]:\d+", line)]
         input_offset = 0
+        cue_group_offset = 0
         for round_index, round_length in enumerate(range(1, 5)):
             final_release_line = None
             if ready_lines[round_index] >= button_input_lines[input_offset]:
@@ -843,7 +844,18 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                 final_release_line = release_lines[event_index]
             if final_release_line is None or final_release_line >= round_completions[round_index]:
                 raise RuntimeError(f"round {round_index + 1} completed before its mapped answers were released")
+            if round_index < 3:
+                next_round_cue = cue_group_offset + round_length
+                if not (round_completions[round_index] < cue_on_line_indices[next_round_cue]):
+                    raise RuntimeError(
+                        f"round {round_index + 2} cue began before round {round_index + 1} completed"
+                    )
+                forward_delta(
+                    on[next_round_cue][1], releases[input_offset + round_length - 1][1],
+                    f"round {round_index + 2} cue after round {round_index + 1} final answer",
+                )
             input_offset += round_length
+            cue_group_offset += round_length
         demo_starts = [(int(round_number), int(timestamp) & 0xFFFFFFFF)
                        for round_number, timestamp in re.findall(
                            r"^SIM_BUTTON_DEMO_START:(\d+):(\d+)\s*$", serial, re.MULTILINE)]
@@ -886,6 +898,13 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                 "simultaneous LED map must follow round 3 celebration and finish before round 4 input: "
                 f"{demo_order_checks}"
             )
+        round_four_first_cue = sum(cue_groups_before_input[:3])
+        if demo_end_lines[0] >= cue_on_line_indices[round_four_first_cue]:
+            raise RuntimeError("round 4 cue began before the round-3 map demo ended")
+        forward_delta(
+            on[round_four_first_cue][1], demo_ends[0][1],
+            "round 4 cue after round-3 map demo",
+        )
 
 
 def display_color(color: int | None) -> str:
