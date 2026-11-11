@@ -18,14 +18,18 @@ cp "$ROOT/alien-simon-says.ino" "$ROOT"/*.h "$SKETCH_DIR/"
   --output-dir "$ROOT/build/physical" \
   "$SKETCH_DIR"
 
-WOKWI_CPPFLAGS="-DWOKWI_SIM"
-if [[ -n "${WOKWI_INITIAL_SEED:-}" ]]; then
-  if [[ ! "$WOKWI_INITIAL_SEED" =~ ^[0-9]+$ ]]; then
-    echo "WOKWI_INITIAL_SEED must be a decimal integer" >&2
+WOKWI_BUILD_SEED="${WOKWI_INITIAL_SEED:-}"
+if [[ -z "$WOKWI_BUILD_SEED" ]]; then
+  WOKWI_BUILD_SEED="$(python3 -c 'import secrets; print(secrets.randbelow(0xFFFFFFFF) + 1)')"
+else
+  if [[ ! "$WOKWI_BUILD_SEED" =~ ^[0-9]+$ ]] ||
+     ! python3 -c 'import sys; n=int(sys.argv[1]); sys.exit(0 if 1 <= n <= 0xFFFFFFFF else 1)' "$WOKWI_BUILD_SEED"; then
+    echo "WOKWI_INITIAL_SEED must be an integer from 1 to 4294967295" >&2
     exit 2
   fi
-  WOKWI_CPPFLAGS+=" -DWOKWI_INITIAL_SEED=${WOKWI_INITIAL_SEED}UL"
 fi
+printf 'Wokwi build seed: %s\n' "$WOKWI_BUILD_SEED"
+WOKWI_CPPFLAGS="-DWOKWI_SIM -DWOKWI_INITIAL_SEED=${WOKWI_BUILD_SEED}UL"
 if [[ -n "${WOKWI_PREVIOUS_FIRST_COLOR:-}" ]]; then
   if [[ ! "$WOKWI_PREVIOUS_FIRST_COLOR" =~ ^([0-3]|255)$ ]]; then
     echo "WOKWI_PREVIOUS_FIRST_COLOR must be 0..3 or 255 (none)" >&2

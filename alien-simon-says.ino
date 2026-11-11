@@ -114,7 +114,8 @@ static uint32_t xorshift32(uint32_t &value) {
 static bool makeSeed(uint32_t *seedOut) {
   if (seedOut == 0) return false;
 #if defined(WOKWI_SIM)
-  // Wokwi gets logged, replayable seeds from the test runner, never hardware RNG.
+  // Wokwi seeds are host-injected (random per normal build, explicit for tests);
+  // the serial seed log preserves replay, and simulation never claims hardware RNG.
 #ifndef WOKWI_INITIAL_SEED
 #define WOKWI_INITIAL_SEED 1UL
 #endif
