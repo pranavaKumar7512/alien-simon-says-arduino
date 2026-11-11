@@ -3,6 +3,8 @@ import re
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "run-wokwi-tests.py"
@@ -139,6 +141,38 @@ class WokwiTestRunnerTests(unittest.TestCase):
         serial = button_remap_transcript(plans[0])
         RUNNER.validate_transcript("button-remap", plans, 2300, serial)
 
+        reordered = serial.splitlines()
+        ready_index = next(i for i, line in enumerate(reordered)
+                           if line.startswith("SIM_INPUT_READY:"))
+        ready_line = reordered.pop(ready_index)
+        first_release = next(i for i, line in enumerate(reordered)
+                             if line.startswith("SIM_INPUT_RELEASE:"))
+        reordered.insert(first_release + 1, ready_line)
+        with self.assertRaisesRegex(RuntimeError, "input-ready 1 must precede"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, "\n".join(reordered))
+
+        demo_start, demo_end = re.findall(
+            r"SIM_BUTTON_DEMO_(?:START|END):4:(\d+)", serial
+        )
+        reversed_demo = serial.replace(
+            f"SIM_BUTTON_DEMO_END:4:{demo_end}",
+            f"SIM_BUTTON_DEMO_END:4:{int(demo_start) - 1}",
+        )
+        with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, reversed_demo)
+
+        first_input_press = re.search(r"SIM_INPUT_PRESS:[0-3]:(\d+)", serial)
+        first_input_release = re.search(r"SIM_INPUT_RELEASE:[0-3]:(\d+)", serial)
+        self.assertIsNotNone(first_input_press)
+        self.assertIsNotNone(first_input_release)
+        reversed_release = (
+            serial[:first_input_release.start(1)] +
+            str(int(first_input_press.group(1)) - 1) +
+            serial[first_input_release.end(1):]
+        )
+        with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, reversed_release)
+
         first_led = re.search(r"SIM_MAPPED_LED_ON:([0-3]):([0-3]):(\d+)", serial)
         self.assertIsNotNone(first_led)
         wrong_led_position = (int(first_led.group(2)) + 1) % 4
@@ -173,6 +207,33 @@ class WokwiTestRunnerTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "at least 5.5 seconds"):
             RUNNER.validate_transcript("button-remap", plans, 2300, too_short)
+
+    def test_button_remap_transcript_timestamps_wrap_millis(self):
+        plan = RUNNER.game_plan(0x12345678, None, 4)
+        serial = button_remap_transcript(plan)
+        timestamp_patterns = (
+            r"^(SIM_CUE_(?:ON|OFF|STOP_REQUEST|GAP_DONE):[0-3]:)(\d+)$",
+            r"^(SIM_INPUT_READY:)(\d+)$",
+            r"^(SIM_BUTTON_INPUT:[0-3]:[0-3]:)(\d+)$",
+            r"^(SIM_INPUT_(?:PRESS|RELEASE):[0-3]:)(\d+)$",
+            r"^(SIM_MAPPED_LED_ON:[0-3]:[0-3]:)(\d+)$",
+            r"^(SIM_BUTTON_DEMO_(?:START|END):4:)(\d+)$",
+        )
+        offset = 0xFFFFFF00
+        shifted_lines = []
+        for line in serial.splitlines():
+            for pattern in timestamp_patterns:
+                line = re.sub(
+                    pattern,
+                    lambda match: match.group(1) + str(
+                        (int(match.group(2)) + offset) & 0xFFFFFFFF
+                    ),
+                    line,
+                )
+            shifted_lines.append(line)
+        RUNNER.validate_transcript(
+            "button-remap", [plan], 2300, "\n".join(shifted_lines)
+        )
 
     def test_uniform_below_rejects_upper_nonzero_states(self):
         vectors = (
@@ -223,6 +284,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
             "SIM_CUE_OFF:1:4400",
             "SIM_CUE_STOP_REQUEST:1:4400",
             "SIM_CUE_GAP_DONE:1:4580",
+            "SIM_INPUT_READY:4580",
         ))
         RUNNER.validate_transcript("gameover-stale-event", plans, 2300, serial)
 
@@ -267,6 +329,37 @@ class WokwiTestRunnerTests(unittest.TestCase):
             RUNNER.ROOT / "build" / "wokwi-tests" / "firmware" / "chunk-boundary-12345678-prev-none",
         )
         self.assertNotEqual(isolated, RUNNER.ROOT / "build" / "wokwi")
+        self.assertTrue(isolated.is_absolute())
+
+    def test_scenario_build_uses_absolute_isolated_paths(self):
+        original_root = RUNNER.ROOT
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "project with spaces"
+            root.mkdir()
+            (root / "alien-simon-says.ino").write_text("void setup() {}\n", encoding="utf-8")
+            (root / "helper.h").write_text("// test header\n", encoding="utf-8")
+            RUNNER.ROOT = root
+            try:
+                with patch.object(RUNNER.subprocess, "run", return_value=SimpleNamespace(
+                        returncode=0, stdout="compiled\n")) as compile_run:
+                    result, output = RUNNER.build_wokwi_firmware(
+                        0x12345678, None, "chunk-boundary", {"ARDUINO_CLI": "arduino-cli"}
+                    )
+            finally:
+                RUNNER.ROOT = original_root
+
+        self.assertEqual((result, output), (0, "compiled\n"))
+        command = compile_run.call_args.args[0]
+        output_dir = Path(command[command.index("--output-dir") + 1])
+        self.assertTrue(output_dir.is_absolute())
+        self.assertEqual(
+            output_dir,
+            root / "build" / "wokwi-tests" / "firmware" /
+            "chunk-boundary-12345678-prev-none",
+        )
+        self.assertNotEqual(output_dir, root / "build" / "wokwi")
+        self.assertTrue(Path(command[-1]).is_absolute())
+        self.assertEqual(compile_run.call_args.kwargs["cwd"], root)
 
     def test_timestamp_delta_handles_millis_wraparound(self):
         self.assertEqual(RUNNER.forward_delta(0x00000020, 0xFFFFFFF0, "rollover"), 0x30)
@@ -381,7 +474,8 @@ class WokwiTestRunnerTests(unittest.TestCase):
             if index == 0:
                 lines.append("SIM_INPUT_READY:2300")
             elif index == 1:
-                lines.extend(("SIM_GAME_OVER_START", "SIM_SERVO_EXTEND",
+                lines.extend(("SIM_INPUT_READY:4600", "WRONG_ANSWER",
+                              "SIM_GAME_OVER_START", "SIM_SERVO_EXTEND",
                               "SIM_GAME_RESET_QUEUED", "SIM_SERVO_RETRACT"))
             else:
                 lines.append("SIM_INPUT_READY:6900")
@@ -419,6 +513,14 @@ class WokwiTestRunnerTests(unittest.TestCase):
         lines.append("SIM_ROUND_COMPLETE")
         RUNNER.validate_transcript("chunk-boundary", plans, 250, "\n".join(lines))
 
+        late_gap = lines.copy()
+        first_off = next(i for i, line in enumerate(late_gap) if line.startswith("SIM_CUE_OFF:"))
+        first_gap = next(i for i, line in enumerate(late_gap) if line.startswith("SIM_CUE_GAP_DONE:"))
+        off_at = int(late_gap[first_off].rsplit(":", 1)[1])
+        late_gap[first_gap] = late_gap[first_gap].rsplit(":", 1)[0] + f":{off_at + 250}"
+        with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
+            RUNNER.validate_transcript("chunk-boundary", plans, 250, "\n".join(late_gap))
+
         broken = lines.copy()
         wrong = (plan.symbols[-1] + 1) % len(RUNNER.COLORS)
         broken[-2] = f"SIM_INPUT_RELEASE:{wrong}:{ready_at + 100 + 10 * 100 + 60}"
@@ -446,6 +548,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
             if completed_round < 4:
                 lines.append("SIM_ROUND_COMPLETE")
         lines.extend((
+            "WRONG_ANSWER",
             "SIM_AUDIO_START:5",
             "SIM_GAME_OVER_START",
             "SIM_SERVO_EXTEND",
@@ -454,6 +557,15 @@ class WokwiTestRunnerTests(unittest.TestCase):
             "SIM_GAME_OVER_STOP",
         ))
         RUNNER.validate_transcript("servo-only-after-loss", plans, 2300, "\n".join(lines))
+
+        wrong_loss_reason = lines.copy()
+        wrong_loss_reason[wrong_loss_reason.index("WRONG_ANSWER")] = "WRONG_CHORD"
+        with self.assertRaisesRegex(RuntimeError, "wrong answer"):
+            RUNNER.validate_transcript("servo-only-after-loss", plans, 2300, "\n".join(wrong_loss_reason))
+        wrong_chord = lines.copy()
+        wrong_chord.insert(wrong_chord.index("WRONG_ANSWER"), "WRONG_CHORD")
+        with self.assertRaisesRegex(RuntimeError, "wrong answer"):
+            RUNNER.validate_transcript("servo-only-after-loss", plans, 2300, "\n".join(wrong_chord))
 
         bad_order = lines.copy()
         bad_order.insert(2, "SIM_SERVO_EXTEND")
@@ -490,6 +602,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
             f"SIM_CUE_OFF:{second.first}:12000",
             f"SIM_CUE_STOP_REQUEST:{second.first}:12000",
             f"SIM_CUE_GAP_DONE:{second.first}:12180",
+            "SIM_INPUT_READY:12180",
         ]
         RUNNER.validate_transcript("gameover-stale-event", plans, 2300, "\n".join(lines))
 
@@ -498,7 +611,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
         drain_index = next(i for i, line in enumerate(bad_order)
                            if line.startswith("SIM_GAMEOVER_EVENT_DRAINED:"))
         bad_order[start_index], bad_order[drain_index] = bad_order[drain_index], bad_order[start_index]
-        with self.assertRaisesRegex(RuntimeError, "drained before stop"):
+        with self.assertRaisesRegex(RuntimeError, "Game Over completion"):
             RUNNER.validate_transcript("gameover-stale-event", plans, 2300, "\n".join(bad_order))
 
         accepted = lines.copy()
