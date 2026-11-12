@@ -28,10 +28,10 @@ BUTTON_ROWS = {
     "button-start": (30, 28),
 }
 BUTTON_COLORS = {
-    "button-red": "red",
-    "button-green": "green",
-    "button-blue": "blue",
-    "button-yellow": "yellow",
+    "button-red": "black",
+    "button-green": "black",
+    "button-blue": "black",
+    "button-yellow": "black",
     "button-start": "gray",
 }
 

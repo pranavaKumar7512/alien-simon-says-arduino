@@ -10,10 +10,10 @@ from collections import defaultdict, deque
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUTTONS = {
-    "button-red": ("6", 6, 4, "bn.28", "red"),
-    "button-green": ("7", 12, 10, "bn.28", "green"),
-    "button-blue": ("8", 18, 16, "bn.28", "blue"),
-    "button-yellow": ("A0", 24, 22, "bn.28", "yellow"),
+    "button-red": ("6", 6, 4, "bn.28", "black"),
+    "button-green": ("7", 12, 10, "bn.28", "black"),
+    "button-blue": ("8", 18, 16, "bn.28", "black"),
+    "button-yellow": ("A0", 24, 22, "bn.28", "black"),
     "button-start": ("A1", 30, 28, "bn.28", "gray"),
 }
 GROUND_BUS_ROWS = (4, 10, 16, 22, 28)
