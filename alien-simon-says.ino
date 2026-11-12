@@ -29,6 +29,7 @@ static const uint8_t MP3_RX_PIN = 10; // Uno RX <- DFPlayer TX
 static const uint8_t MP3_TX_PIN = 11; // Uno TX -> 1 kOhm -> DFPlayer RX
 static const uint16_t DEBOUNCE_MS = 25;
 static const uint16_t CUE_GAP_MS = 180;
+static const uint16_t BUTTON_FEEDBACK_DARK_MS = 500;
 static const uint16_t SEQUENCE_CUE_MS = 2000;
 static const uint32_t CUE_TIMEOUT_MS = 2500UL;
 static const uint16_t ENTROPY_ACQUIRE_TIMEOUT_MS = 1200U;
@@ -83,6 +84,7 @@ uint32_t answerIndex = 0;
 uint32_t stateStartedAt = 0;
 uint32_t idlePageStartedAt = 0;
 uint32_t buttonMappingDemoStartedAt = 0;
+uint32_t buttonFeedbackStartedAt = 0;
 uint32_t gameOverStartedAt = 0;
 uint32_t audioStartedAt = 0;
 uint32_t servoExtendedAt = 0;
@@ -119,6 +121,7 @@ enum GameState : uint8_t {
   CUE_GAP,
   WAIT_RELEASE_BEFORE_INPUT,
   WAIT_INPUT,
+  BUTTON_FEEDBACK,
   WAIT_INPUT_RELEASE,
   CELEBRATION,
   GAME_OVER
@@ -252,18 +255,17 @@ static void refreshRoundDisplay() {
 }
 
 static void allLedsOff();
+static bool showButtonMapping();
 static void writePlayerPixel(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue);
 
 static void beginButtonMappingDemo(uint32_t effectiveRound) {
   // Each four-pixel strip is physically aligned with one left-to-right button
   // position. Recolor all four groups in one show() so the complete map is
   // visible simultaneously without relying on the buttons' casing colors.
-  if (!playerLedSetButtonMapping(buttonToCueColor, writePlayerPixel)) {
-    allLedsOff();
+  if (!showButtonMapping()) {
     buttonMappingDemoActive = false;
     return;
   }
-  playerStrip.show();
   buttonMappingDemoRound = effectiveRound;
   buttonMappingDemoStartedAt = millis();
   buttonMappingDemoActive = true;
@@ -304,6 +306,21 @@ static void logButtonMapping(uint32_t effectiveRound) {
     Serial.print(buttonToCueColor[position]);
   }
   Serial.println();
+#else
+  (void)effectiveRound;
+#endif
+}
+
+static void logInputMapping(uint32_t effectiveRound) {
+#if defined(WOKWI_SIM)
+  Serial.print(F("SIM_INPUT_MAP_ON:"));
+  Serial.print(effectiveRound);
+  Serial.print(':');
+  for (uint8_t position = 0U; position < BUTTON_MAPPING_COUNT; ++position) {
+    Serial.print(buttonToCueColor[position]);
+  }
+  Serial.print(':');
+  Serial.println(millis());
 #else
   (void)effectiveRound;
 #endif
@@ -352,6 +369,15 @@ static void setLed(uint8_t symbol, bool on) {
     Serial.println(millis());
   }
 #endif
+}
+
+static bool showButtonMapping() {
+  if (!playerLedSetButtonMapping(buttonToCueColor, writePlayerPixel)) {
+    allLedsOff();
+    return false;
+  }
+  playerStrip.show();
+  return true;
 }
 
 static void allLedsOff() {
@@ -556,6 +582,8 @@ static void beginGameOver(uint32_t now, bool playerLost) {
 
 static void beginRound(uint32_t now) {
   roundLength = completedRounds + 1UL;
+  allLedsOff();
+  buttonFeedbackStartedAt = 0UL;
   playbackState = sequenceTailState;
   answerState = sequenceTailState;
   playbackIndex = 0;
@@ -641,6 +669,7 @@ static void enterIdle(uint32_t now) {
 }
 
 static void completeCorrectAnswer(uint32_t now) {
+  allLedsOff();
   ++completedRounds; // called only after a full round is correctly entered
   if (completedRounds > bestScore) {
     bestScore = completedRounds;
@@ -809,7 +838,11 @@ void loop() {
 
     case PLAY_CUE:
       if (playbackIndex >= roundLength) {
-        allLedsOff();
+        if (!showButtonMapping()) {
+          beginGameOver(millis(), false);
+          break;
+        }
+        logInputMapping(roundLength);
         gameState = WAIT_RELEASE_BEFORE_INPUT;
         break;
       }
@@ -888,18 +921,60 @@ void loop() {
           failAnswer(now, F("WRONG_ANSWER"));
           break;
         }
-        setLed(pendingAnswer, true);
+        const uint32_t inputPressedAt = millis();
+        if (!playerLedSetButtonMappingWithColorOff(
+                buttonToCueColor, pendingAnswer, writePlayerPixel)) {
+          allLedsOff();
+          beginGameOver(inputPressedAt, false);
+          break;
+        }
+        playerStrip.show();
+        buttonFeedbackStartedAt = millis();
 #if defined(WOKWI_SIM)
+        const uint32_t mappedLedOffAt = buttonFeedbackStartedAt;
+        Serial.print(F("SIM_MAPPED_LED_OFF:"));
+        Serial.print(pendingAnswer);
+        Serial.print(':');
+        Serial.print(pressedButton);
+        Serial.print(':');
+        Serial.println(mappedLedOffAt);
         Serial.print(F("SIM_BUTTON_INPUT:"));
         Serial.print(pressedButton);
         Serial.print(':');
         Serial.print(pendingAnswer);
         Serial.print(':');
-        Serial.println(now);
+        Serial.println(inputPressedAt);
         Serial.print(F("SIM_INPUT_PRESS:"));
         Serial.print(pendingAnswer);
         Serial.print(':');
-        Serial.println(now);
+        Serial.println(inputPressedAt);
+#endif
+        gameState = BUTTON_FEEDBACK;
+      }
+      break;
+    }
+
+    case BUTTON_FEEDBACK: {
+      uint8_t heldButton = 0xFF;
+      const uint32_t feedbackNow = millis();
+      if (countPlayButtonsDown(&heldButton) >= 2) {
+        failAnswer(feedbackNow, F("WRONG_CHORD"));
+      } else if (elapsed(feedbackNow, buttonFeedbackStartedAt,
+                         BUTTON_FEEDBACK_DARK_MS)) {
+        if (!showButtonMapping()) {
+          beginGameOver(millis(), false);
+          break;
+        }
+        const uint8_t mappedPosition =
+            buttonMappingPositionForColor(buttonToCueColor, pendingAnswer);
+        const uint32_t restoredAt = millis();
+#if defined(WOKWI_SIM)
+        Serial.print(F("SIM_MAPPED_LED_RESTORE:"));
+        Serial.print(pendingAnswer);
+        Serial.print(':');
+        Serial.print(mappedPosition);
+        Serial.print(':');
+        Serial.println(restoredAt);
 #endif
         gameState = WAIT_INPUT_RELEASE;
       }
@@ -918,7 +993,6 @@ void loop() {
         Serial.print(':');
         Serial.println(now);
 #endif
-        setLed(pendingAnswer, false);
         simonGame.add(pendingAnswer);
         ++answerIndex;
         ++answerChunkIndex;

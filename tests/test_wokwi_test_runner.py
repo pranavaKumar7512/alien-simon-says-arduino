@@ -43,19 +43,26 @@ def button_remap_transcript(plan):
                 f"SIM_CUE_GAP_DONE:{color}:{off + 180}",
             ))
             clock = off + 180
-        ready = clock + 50
+        map_on = clock + 1
+        lines.append(f"SIM_INPUT_MAP_ON:{round_number}:{encode(mapping)}:{map_on}")
+        ready = map_on + 50
         lines.append(f"SIM_INPUT_READY:{ready}")
-        for index, color in enumerate(plan.symbols[:round_number]):
-            press = ready + 50 + index * 100
+        accepted_at = ready
+        for color in plan.symbols[:round_number]:
+            press = accepted_at + 50
             position = RUNNER.button_position_for_color(mapping, color)
+            restored = press + 500
+            released = restored + 10
             lines.extend((
-                f"SIM_MAPPED_LED_ON:{color}:{position}:{press}",
+                f"SIM_MAPPED_LED_OFF:{color}:{position}:{press}",
                 f"SIM_BUTTON_INPUT:{position}:{color}:{press}",
                 f"SIM_INPUT_PRESS:{color}:{press}",
-                f"SIM_INPUT_RELEASE:{color}:{press + 60}",
+                f"SIM_MAPPED_LED_RESTORE:{color}:{position}:{restored}",
+                f"SIM_INPUT_RELEASE:{color}:{released}",
             ))
+            accepted_at = released
         lines.append("SIM_ROUND_COMPLETE")
-        clock = ready + 50 + round_number * 100 + 100
+        clock = accepted_at + 100
         if round_number == 3:
             lines.extend((
                 f"SIM_BUTTON_MAP:4:{encode(maps[4])}",
@@ -153,7 +160,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
         first_release = next(i for i, line in enumerate(reordered)
                              if line.startswith("SIM_INPUT_RELEASE:"))
         reordered.insert(first_release + 1, ready_line)
-        with self.assertRaisesRegex(RuntimeError, "input-ready 1 must precede"):
+        with self.assertRaisesRegex(RuntimeError, "must show its full color map"):
             RUNNER.validate_transcript("button-remap", plans, 2300, "\n".join(reordered))
 
         demo_start, demo_end = re.findall(
@@ -178,12 +185,22 @@ class WokwiTestRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
             RUNNER.validate_transcript("button-remap", plans, 2300, reversed_release)
 
+        first_off = re.search(r"SIM_MAPPED_LED_OFF:([0-3]):([0-3]):(\d+)", serial)
+        first_restore = re.search(r"SIM_MAPPED_LED_RESTORE:([0-3]):([0-3]):(\d+)", serial)
+        self.assertIsNotNone(first_off)
+        self.assertIsNotNone(first_restore)
+        short_feedback = (serial[:first_restore.start(3)] +
+                          str(int(first_off.group(3)) + 499) +
+                          serial[first_restore.end(3):])
+        with self.assertRaisesRegex(RuntimeError, "dark for 499 ms"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, short_feedback)
+
         first_led = re.search(r"SIM_MAPPED_LED_ON:([0-3]):([0-3]):(\d+)", serial)
         self.assertIsNotNone(first_led)
         wrong_led_position = (int(first_led.group(2)) + 1) % 4
         malformed_led = (serial[:first_led.start(2)] + str(wrong_led_position) +
                          serial[first_led.end(2):])
-        with self.assertRaisesRegex(RuntimeError, "mapped LED cues/feedback"):
+        with self.assertRaisesRegex(RuntimeError, "mapped sequence cues"):
             RUNNER.validate_transcript("button-remap", plans, 2300, malformed_led)
 
         first_input = re.search(r"SIM_BUTTON_INPUT:([0-3]):([0-3]):(\d+)", serial)
@@ -203,6 +220,12 @@ class WokwiTestRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "button mapping logs"):
             RUNNER.validate_transcript("button-remap", plans, 2300, malformed_map)
 
+        malformed_input_map = serial.replace(
+            "SIM_INPUT_MAP_ON:1:0123:", "SIM_INPUT_MAP_ON:1:1023:"
+        )
+        with self.assertRaisesRegex(RuntimeError, "all mapped button colors"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, malformed_input_map)
+
         start_demo, end_demo = re.findall(
             r"SIM_BUTTON_DEMO_(?:START|END):4:(\d+)", serial
         )
@@ -218,21 +241,18 @@ class WokwiTestRunnerTests(unittest.TestCase):
         lines = button_remap_transcript(plan).splitlines()
         shifted = []
         for index, line in enumerate(lines):
-            shift_timestamp = (
-                line.startswith((
-                    "SIM_INPUT_READY:", "SIM_BUTTON_INPUT:", "SIM_INPUT_PRESS:",
-                    "SIM_INPUT_RELEASE:", "SIM_BUTTON_DEMO_START:", "SIM_BUTTON_DEMO_END:",
-                )) or
-                (line.startswith("SIM_MAPPED_LED_ON:") and
-                 index + 1 < len(lines) and lines[index + 1].startswith("SIM_BUTTON_INPUT:"))
-            )
+            shift_timestamp = line.startswith((
+                "SIM_INPUT_MAP_ON:", "SIM_INPUT_READY:", "SIM_BUTTON_INPUT:",
+                "SIM_INPUT_PRESS:", "SIM_INPUT_RELEASE:", "SIM_MAPPED_LED_OFF:",
+                "SIM_MAPPED_LED_RESTORE:", "SIM_BUTTON_DEMO_START:", "SIM_BUTTON_DEMO_END:",
+            ))
             if shift_timestamp:
                 prefix, timestamp = line.rsplit(":", 1)
                 line = f"{prefix}:{(int(timestamp) + 30000) & 0xFFFFFFFF}"
             shifted.append(line)
 
-        self.assertIn("SIM_INPUT_READY:37930", shifted)
-        self.assertIn(f"SIM_CUE_ON:{plan.symbols[0]}:8180", shifted)
+        self.assertIn("SIM_INPUT_READY:37931", shifted)
+        self.assertIn(f"SIM_CUE_ON:{plan.symbols[0]}:8591", shifted)
         with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
             RUNNER.validate_transcript("button-remap", [plan], 2300, "\n".join(shifted))
 
@@ -260,6 +280,8 @@ class WokwiTestRunnerTests(unittest.TestCase):
             r"^(SIM_BUTTON_INPUT:[0-3]:[0-3]:)(\d+)$",
             r"^(SIM_INPUT_(?:PRESS|RELEASE):[0-3]:)(\d+)$",
             r"^(SIM_MAPPED_LED_ON:[0-3]:[0-3]:)(\d+)$",
+            r"^(SIM_MAPPED_LED_(?:OFF|RESTORE):[0-3]:[0-3]:)(\d+)$",
+            r"^(SIM_INPUT_MAP_ON:\d+:[0-3]{4}:)(\d+)$",
             r"^(SIM_BUTTON_DEMO_(?:START|END):[14]:)(\d+)$",
         )
         offset = 0xFFFFFF00

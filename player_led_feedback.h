@@ -73,8 +73,30 @@ static inline bool playerLedSetButtonMapping(const uint8_t *buttonToColor,
   return true;
 }
 
-// During normal play, light the physical button-position group assigned to a
-// cue color, rendering that group's pixels in the assigned color.
+// Keep the current button/color map visible, but blank only the group assigned
+// to the color the player just pressed.
+static inline bool playerLedSetButtonMappingWithColorOff(
+    const uint8_t *buttonToColor, uint8_t colorToTurnOff,
+    PlayerLedWritePixel writePixel) {
+  if (!playerLedMappingIsValid(buttonToColor) ||
+      colorToTurnOff >= PLAYER_LED_SYMBOL_COUNT || writePixel == 0) return false;
+
+  const PlayerLedRgb black = {0U, 0U, 0U};
+  for (uint8_t position = 0U; position < PLAYER_LED_SYMBOL_COUNT; ++position) {
+    const uint8_t mappedColor = buttonToColor[position];
+    const PlayerLedRgb color = mappedColor == colorToTurnOff
+                                   ? black
+                                   : PLAYER_LED_COLORS[mappedColor];
+    for (uint8_t offset = 0U; offset < PLAYER_LED_PIXELS_PER_SYMBOL; ++offset) {
+      const uint8_t pixel = (uint8_t)(position * PLAYER_LED_PIXELS_PER_SYMBOL + offset);
+      writePixel(pixel, color.red, color.green, color.blue);
+    }
+  }
+  return true;
+}
+
+// During sequence playback, light only the physical button-position group
+// assigned to a cue color, rendering that group's pixels in the assigned color.
 static inline bool playerLedSetMappedCue(const uint8_t *buttonToColor,
                                          uint8_t cueColor, bool on,
                                          PlayerLedWritePixel writePixel) {

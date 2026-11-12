@@ -156,6 +156,10 @@ def control_step(part_id: str, pressed: bool) -> str:
 
 def press_and_release(steps: list[str], button: str) -> None:
     steps.extend((control_step(button, True), delay_step(), control_step(button, False), delay_step()))
+    if button != "button-start":
+        # Firmware intentionally waits out the 500 ms visual press feedback before
+        # accepting release and the next play-button input.
+        steps.append(wait_step("SIM_INPUT_RELEASE"))
 
 
 def start_game(steps: list[str], plan: GamePlan) -> None:
@@ -493,6 +497,12 @@ def write_diagram_variant(destination: Path, completion_delay_ms: int) -> None:
 def marker_values(serial: str, name: str) -> list[tuple[int, int]]:
     pattern = re.compile(rf"^{re.escape(name)}:(\d+):(\d+)\s*$", re.MULTILINE)
     return [(int(symbol), int(timestamp) & 0xFFFFFFFF) for symbol, timestamp in pattern.findall(serial)]
+
+
+def mapped_led_values(serial: str, name: str) -> list[tuple[int, int, int]]:
+    pattern = re.compile(rf"^{re.escape(name)}:([0-3]):([0-3]):(\d+)\s*$", re.MULTILINE)
+    return [(int(color), int(position), int(timestamp) & 0xFFFFFFFF)
+            for color, position, timestamp in pattern.findall(serial)]
 
 
 def button_input_values(serial: str) -> list[tuple[int, int, int]]:
@@ -854,13 +864,14 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
             raise RuntimeError(f"button position/color inputs {actual_inputs} do not match {expected_inputs}")
 
         expected_led_assignments = []
+        expected_input_led_assignments = []
         for round_number in range(1, 5):
             mapping = mapping_by_round[round_number]
             round_colors = plan.symbols[:round_number]
             expected_led_assignments.extend(
                 (color, button_position_for_color(mapping, color)) for color in round_colors
             )
-            expected_led_assignments.extend(
+            expected_input_led_assignments.extend(
                 (color, button_position_for_color(mapping, color)) for color in round_colors
             )
         actual_led_assignments = [
@@ -871,9 +882,29 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         ]
         if actual_led_assignments != expected_led_assignments:
             raise RuntimeError(
-                "mapped LED cues/feedback must use each cue color's assigned button position: "
+                "mapped sequence cues must use each cue color's assigned button position: "
                 f"{actual_led_assignments} != {expected_led_assignments}"
             )
+
+        input_maps = [
+            (int(round_number), encoded, int(timestamp) & 0xFFFFFFFF)
+            for round_number, encoded, timestamp in re.findall(
+                r"^SIM_INPUT_MAP_ON:(\d+):([0-3]{4}):(\d+)\s*$", serial, re.MULTILINE
+            )
+        ]
+        expected_input_maps = [
+            (round_number, "".join(str(color) for color in mapping_by_round[round_number]))
+            for round_number in range(1, 5)
+        ]
+        if [(round_number, encoded) for round_number, encoded, _ in input_maps] != expected_input_maps:
+            raise RuntimeError("all mapped button colors must be shown after each cue sequence")
+
+        input_led_off = mapped_led_values(serial, "SIM_MAPPED_LED_OFF")
+        input_led_restore = mapped_led_values(serial, "SIM_MAPPED_LED_RESTORE")
+        if [(color, position) for color, position, _ in input_led_off] != expected_input_led_assignments:
+            raise RuntimeError("pressed color LED groups do not match the active button/color mapping")
+        if [(color, position) for color, position, _ in input_led_restore] != expected_input_led_assignments:
+            raise RuntimeError("restored color LED groups do not match the active button/color mapping")
 
         presses = marker_values(serial, "SIM_INPUT_PRESS")
         releases = marker_values(serial, "SIM_INPUT_RELEASE")
@@ -886,6 +917,42 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                 [color for color, _ in releases] == [color for _, color in expected_inputs] and
                 serial.count("SIM_TEST_BUTTON_REMAP_DONE") == 1):
             raise RuntimeError("button-remap transcript is missing mapped input/round completion events")
+
+        off_lines = [i for i, line in enumerate(lines)
+                     if re.match(r"SIM_MAPPED_LED_OFF:[0-3]:[0-3]:\d+", line)]
+        restore_lines = [i for i, line in enumerate(lines)
+                         if re.match(r"SIM_MAPPED_LED_RESTORE:[0-3]:[0-3]:\d+", line)]
+        input_release_lines = [i for i, line in enumerate(lines)
+                               if re.match(r"SIM_INPUT_RELEASE:[0-3]:\d+", line)]
+        mapped_input_lines = [i for i, line in enumerate(lines)
+                              if re.match(r"SIM_BUTTON_INPUT:[0-3]:[0-3]:\d+", line)]
+        press_lines = [i for i, line in enumerate(lines)
+                       if re.match(r"SIM_INPUT_PRESS:[0-3]:\d+", line)]
+        if not (len(off_lines) == len(restore_lines) == len(input_release_lines) ==
+                len(mapped_input_lines) == len(press_lines) == len(presses) == len(releases)):
+            raise RuntimeError("each play-button press must have matching LED-off and restore events")
+        for index, (off_event, restore_event, press, release) in enumerate(
+                zip(input_led_off, input_led_restore, presses, releases)):
+            led_off_delay = forward_delta(
+                off_event[2], press[1], f"input {index + 1} press-to-LED-off"
+            )
+            if led_off_delay > 20:
+                raise RuntimeError(
+                    f"input {index + 1} color LED turned off {led_off_delay} ms after the debounced press"
+                )
+            dark_duration = forward_delta(
+                restore_event[2], off_event[2], f"input {index + 1} LED feedback"
+            )
+            if not 500 <= dark_duration <= 650:
+                raise RuntimeError(
+                    f"input {index + 1} color LED was dark for {dark_duration} ms, expected 500 ms"
+                )
+            forward_delta(release[1], restore_event[2],
+                          f"input {index + 1} restore before release")
+            if not (off_lines[index] < mapped_input_lines[index] < press_lines[index] <
+                    restore_lines[index] < input_release_lines[index]):
+                raise RuntimeError(f"input {index + 1} LED feedback events are out of order")
+
         previous_release_at = None
         input_offset = 0
         for round_index, round_length in enumerate(range(1, 5)):
@@ -908,6 +975,8 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         round_completions = [i for i, line in enumerate(lines) if line.strip() == "SIM_ROUND_COMPLETE"]
         ready_lines = [i for i, line in enumerate(lines)
                        if re.match(r"SIM_INPUT_READY:\d+", line)]
+        input_map_lines = [i for i, line in enumerate(lines)
+                           if re.match(r"SIM_INPUT_MAP_ON:\d+:[0-3]{4}:\d+", line)]
         button_input_lines = [i for i, line in enumerate(lines)
                               if re.match(r"SIM_BUTTON_INPUT:[0-3]:[0-3]:\d+", line)]
         press_lines = [i for i, line in enumerate(lines)
@@ -918,8 +987,14 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         cue_group_offset = 0
         for round_index, round_length in enumerate(range(1, 5)):
             final_release_line = None
-            if ready_lines[round_index] >= button_input_lines[input_offset]:
-                raise RuntimeError(f"input-ready {round_index + 1} must precede its mapped button inputs")
+            final_cue_index = cue_group_offset + round_length - 1
+            if not (cue_gap_line_indices[final_cue_index] < input_map_lines[round_index] <
+                    ready_lines[round_index] < button_input_lines[input_offset]):
+                raise RuntimeError(
+                    f"round {round_index + 1} must show its full color map after the cues and before input"
+                )
+            forward_delta(input_maps[round_index][2], gap[final_cue_index][1],
+                          f"round {round_index + 1} color map after cue sequence")
             for answer_index in range(round_length):
                 event_index = input_offset + answer_index
                 if not (button_input_lines[event_index] < press_lines[event_index] <

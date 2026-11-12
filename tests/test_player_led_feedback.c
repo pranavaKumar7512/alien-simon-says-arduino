@@ -52,6 +52,19 @@ static void assert_group_pattern(uint8_t active_group, bool active) {
   }
 }
 
+static void assert_mapping_with_color_off(const uint8_t *mapping, uint8_t color_off) {
+  const PlayerLedRgb black = {0U, 0U, 0U};
+  for (uint8_t position = 0U; position < PLAYER_LED_SYMBOL_COUNT; ++position) {
+    const PlayerLedRgb expected = mapping[position] == color_off
+                                      ? black
+                                      : EXPECTED_MAPPED_COLORS[mapping[position]];
+    for (uint8_t offset = 0U; offset < PLAYER_LED_PIXELS_PER_SYMBOL; ++offset) {
+      const uint8_t pixel = (uint8_t)(position * PLAYER_LED_PIXELS_PER_SYMBOL + offset);
+      assert(is_rgb(pixels[pixel], expected));
+    }
+  }
+}
+
 int main(void) {
   assert(PLAYER_LED_PIXEL_COUNT == 16U);
   assert(PLAYER_LED_SYMBOL_COUNT == 4U);
@@ -93,6 +106,14 @@ int main(void) {
   }
 
   for (uint8_t cue_color = 0U; cue_color < PLAYER_LED_SYMBOL_COUNT; ++cue_color) {
+    reset_pixels();
+    assert(playerLedSetButtonMappingWithColorOff(
+        button_to_color, cue_color, fake_pixel_write));
+    assert(write_count == PLAYER_LED_PIXEL_COUNT);
+    assert_mapping_with_color_off(button_to_color, cue_color);
+  }
+
+  for (uint8_t cue_color = 0U; cue_color < PLAYER_LED_SYMBOL_COUNT; ++cue_color) {
     uint8_t mapped_position = 0U;
     while (button_to_color[mapped_position] != cue_color) ++mapped_position;
     reset_pixels();
@@ -117,6 +138,10 @@ int main(void) {
   const uint8_t invalid_mapping[PLAYER_LED_SYMBOL_COUNT] = {0U, 0U, 2U, 3U};
   reset_pixels();
   assert(!playerLedSetButtonMapping(invalid_mapping, fake_pixel_write));
+  assert(!playerLedSetButtonMappingWithColorOff(invalid_mapping, 0U, fake_pixel_write));
+  assert(!playerLedSetButtonMappingWithColorOff(button_to_color, PLAYER_LED_SYMBOL_COUNT,
+                                                fake_pixel_write));
+  assert(!playerLedSetButtonMappingWithColorOff(button_to_color, 0U, 0));
   assert(!playerLedSetMappedCue(invalid_mapping, 0U, true, fake_pixel_write));
   assert(!playerLedSetMappedCue(button_to_color, PLAYER_LED_SYMBOL_COUNT, true, fake_pixel_write));
   assert(!playerLedSetMappedCue(button_to_color, 0U, true, 0));
