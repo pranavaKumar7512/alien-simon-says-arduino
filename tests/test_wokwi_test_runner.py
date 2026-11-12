@@ -17,13 +17,18 @@ SPEC.loader.exec_module(RUNNER)
 def button_remap_transcript(plan):
     maps = RUNNER.mappings_through_round(plan.seed, 4)
     encode = lambda mapping: "".join(str(color) for color in mapping)
+    initial_demo_start = 100
+    initial_demo_end = initial_demo_start + RUNNER.BUTTON_MAPPING_DEMO_MS
     lines = [
         f"SIM_GAME_START",
         f"SIM_GAME_SEED:{plan.seed}",
         f"SIM_BUTTON_MAP:1:{encode(maps[1])}",
+        f"SIM_BUTTON_DEMO_START:1:{initial_demo_start}",
+        f"SIM_BUTTON_DEMO_MAP:1:{encode(maps[1])}",
+        f"SIM_BUTTON_DEMO_END:1:{initial_demo_end}",
         f"SIM_FIRST_COLOR:{plan.first}",
     ]
-    clock = 100
+    clock = initial_demo_end + 100
     for round_number in range(1, 5):
         mapping = maps[round_number]
         for color in plan.symbols[:round_number]:
@@ -226,8 +231,8 @@ class WokwiTestRunnerTests(unittest.TestCase):
                 line = f"{prefix}:{(int(timestamp) + 30000) & 0xFFFFFFFF}"
             shifted.append(line)
 
-        self.assertIn("SIM_INPUT_READY:32330", shifted)
-        self.assertIn(f"SIM_CUE_ON:{plan.symbols[0]}:2580", shifted)
+        self.assertIn("SIM_INPUT_READY:37930", shifted)
+        self.assertIn(f"SIM_CUE_ON:{plan.symbols[0]}:8180", shifted)
         with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
             RUNNER.validate_transcript("button-remap", [plan], 2300, "\n".join(shifted))
 
@@ -255,7 +260,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
             r"^(SIM_BUTTON_INPUT:[0-3]:[0-3]:)(\d+)$",
             r"^(SIM_INPUT_(?:PRESS|RELEASE):[0-3]:)(\d+)$",
             r"^(SIM_MAPPED_LED_ON:[0-3]:[0-3]:)(\d+)$",
-            r"^(SIM_BUTTON_DEMO_(?:START|END):4:)(\d+)$",
+            r"^(SIM_BUTTON_DEMO_(?:START|END):[14]:)(\d+)$",
         )
         offset = 0xFFFFFF00
         shifted_lines = []

@@ -113,6 +113,7 @@ bool mp3Ready = false;
 
 enum GameState : uint8_t {
   IDLE,
+  SHOW_INITIAL_MAPPING,
   PLAY_CUE,
   CUE_SOUND,
   CUE_GAP,
@@ -579,7 +580,7 @@ static void logSimulationScoreState() {
 }
 #endif
 
-static void beginGame(uint32_t now) {
+static void beginGame() {
   startConsumed = true;
   uint32_t freshSeed = 0U;
   if (!makeSeed(&freshSeed)) {
@@ -611,10 +612,11 @@ static void beginGame(uint32_t now) {
   logSimulationScoreState();
 #endif
   logButtonMapping(1UL);
-  beginRound(now);
+  beginButtonMappingDemo(1UL);
+  gameState = SHOW_INITIAL_MAPPING;
 }
 
-static void restartActiveGame(uint32_t now) {
+static void restartActiveGame() {
   stopAudio();
   allLedsOff();
   gameState = IDLE;
@@ -627,7 +629,7 @@ static void restartActiveGame(uint32_t now) {
 #if defined(WOKWI_SIM)
   Serial.println(F("SIM_GAME_RESET"));
 #endif
-  beginGame(now);
+  beginGame();
 }
 
 static void enterIdle(uint32_t now) {
@@ -779,7 +781,7 @@ void loop() {
     startActionHandled = true;
     startConsumed = true;
     if (gameState == IDLE) {
-      beginGame(now);
+      beginGame();
     } else if (gameState == GAME_OVER) {
       // Keep the loss/servo return sequence intact; start a fresh game afterward.
       restartAfterGameOver = true;
@@ -788,7 +790,7 @@ void loop() {
       Serial.println(F("SIM_GAME_RESET_QUEUED"));
 #endif
     } else {
-      restartActiveGame(now);
+      restartActiveGame();
     }
   }
 
@@ -798,6 +800,11 @@ void loop() {
         idlePage ^= 1U;
         showIdlePage(now);
       }
+      break;
+
+    case SHOW_INITIAL_MAPPING:
+      serviceButtonMappingDemo(millis());
+      if (!buttonMappingDemoActive) beginRound(millis());
       break;
 
     case PLAY_CUE:
@@ -982,7 +989,7 @@ void loop() {
 #if defined(WOKWI_SIM)
           Serial.println(F("SIM_GAME_RESET"));
 #endif
-          beginGame(millis());
+          beginGame();
         }
       }
       break;

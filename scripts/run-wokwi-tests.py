@@ -34,10 +34,10 @@ SCENARIOS = (
 )
 UNSET = object()
 TIMEOUT_MS = {
-    "first-round": 20000,
-    "gameover-stale-event": 24000,
-    "servo-only-after-loss": 45000,
-    "start-reset": 45000,
+    "first-round": 30000,
+    "gameover-stale-event": 30000,
+    "servo-only-after-loss": 50000,
+    "start-reset": 55000,
     "button-remap": 60000,
     "chunk-boundary": 45000,
 }
@@ -951,44 +951,50 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         demo_maps = [(int(round_number), encoded)
                      for round_number, encoded in re.findall(
                          r"^SIM_BUTTON_DEMO_MAP:(\d+):([0-3]{4})\s*$", serial, re.MULTILINE)]
-        expected_demo_map = "".join(str(color) for color in mapping_by_round[4])
-        demo_duration = 0
-        if len(demo_starts) == len(demo_ends) == 1:
-            demo_duration = forward_delta(
-                demo_ends[0][1], demo_starts[0][1], "button-map demo"
-            )
-        if not (len(demo_starts) == len(demo_ends) == 1 and
-                demo_starts[0][0] == demo_ends[0][0] == 4 and
-                demo_maps == [(4, expected_demo_map)] and
-                demo_duration >= BUTTON_MAPPING_DEMO_MS):
-            raise RuntimeError("simultaneous LED map must match the new assignment and stay on for at least 5.5 seconds")
+        initial_demo_map = "".join(str(color) for color in mapping_by_round[1])
+        remap_demo_map = "".join(str(color) for color in mapping_by_round[4])
+        demo_durations = [
+            forward_delta(end[1], start[1], f"round-{start[0]} button-map demo")
+            for start, end in zip(demo_starts, demo_ends)
+        ]
+        if not (len(demo_starts) == len(demo_ends) == 2 and
+                [round_number for round_number, _ in demo_starts] == [1, 4] and
+                [round_number for round_number, _ in demo_ends] == [1, 4] and
+                demo_maps == [(1, initial_demo_map), (4, remap_demo_map)] and
+                len(demo_durations) == 2 and
+                all(duration >= BUTTON_MAPPING_DEMO_MS for duration in demo_durations)):
+            raise RuntimeError("initial and remapped LED maps must match their assignments and each stay on for at least 5.5 seconds")
         demo_start_lines = [i for i, line in enumerate(lines)
                             if line.startswith("SIM_BUTTON_DEMO_START:")]
         demo_map_lines = [i for i, line in enumerate(lines)
                           if line.startswith("SIM_BUTTON_DEMO_MAP:")]
         demo_end_lines = [i for i, line in enumerate(lines)
                           if line.startswith("SIM_BUTTON_DEMO_END:")]
+        game_start_lines = [i for i, line in enumerate(lines)
+                            if line.strip() == "SIM_GAME_START"]
         audio_done_lines = [i for i, line in enumerate(lines)
                             if re.match(r"SIM_AUDIO_DONE:\d+", line)]
         demo_order_checks = (
-            len(demo_map_lines) == 1,
+            len(game_start_lines) == 1 and
+            game_start_lines[0] < map_lines[0] < demo_start_lines[0] <
+            demo_map_lines[0] < demo_end_lines[0] < cue_on_line_indices[0],
             map_lines[0] < ready_lines[0] < round_completions[0] <
             round_completions[1] < round_completions[2] < map_lines[1],
-            any(round_completions[2] < done < demo_start_lines[0]
+            any(round_completions[2] < done < demo_start_lines[1]
                 for done in audio_done_lines),
-            demo_start_lines[0] < demo_map_lines[0] < demo_end_lines[0] <
+            demo_start_lines[1] < demo_map_lines[1] < demo_end_lines[1] <
             ready_lines[3] < round_completions[3],
         )
         if not all(demo_order_checks):
             raise RuntimeError(
-                "simultaneous LED map must follow round 3 celebration and finish before round 4 input: "
+                "initial map must finish before round 1 and remapped map must finish before round 4: "
                 f"{demo_order_checks}"
             )
         round_four_first_cue = sum(cue_groups_before_input[:3])
-        if demo_end_lines[0] >= cue_on_line_indices[round_four_first_cue]:
+        if demo_end_lines[1] >= cue_on_line_indices[round_four_first_cue]:
             raise RuntimeError("round 4 cue began before the round-3 map demo ended")
         forward_delta(
-            on[round_four_first_cue][1], demo_ends[0][1],
+            on[round_four_first_cue][1], demo_ends[1][1],
             "round 4 cue after round-3 map demo",
         )
 
