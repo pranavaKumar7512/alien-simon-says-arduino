@@ -1,0 +1,6 @@
+{
+  "name": "External 5 V / 5 A adapter (visual only)",
+  "author": "Project-local visual-only model",
+  "pins": ["5V", "GND"],
+  "controls": []
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Female DC barrel jack to 2-screw-terminal breakout (visual only)",
+  "author": "Project-local visual-only model",
+  "pins": ["JACK+", "JACK-", "5V", "GND"],
+  "controls": []
+}

@@ -29,8 +29,11 @@ WIRE_COLORS = {
     ("uno:GND.1", "bb1:bn.1"): "#000000",
     ("bb1:bn.29", "lcd:GND"): "#000000",
     ("bb1:bn.30", "dfplayer-mock:GND"): "#000000",
-    ("uno:5V", "servo-visual-only:V+"): "#FF0000",
-    ("uno:GND.1", "servo-visual-only:GND"): "#000000",
+    ("external-supply:5V", "barrel-jack-breakout:JACK+"): "#FF0000",
+    ("external-supply:GND", "barrel-jack-breakout:JACK-"): "#000000",
+    ("barrel-jack-breakout:5V", "servo-visual-only:V+"): "#FF0000",
+    ("barrel-jack-breakout:GND", "servo-visual-only:GND"): "#000000",
+    ("barrel-jack-breakout:GND", "uno:GND.1"): "#000000",
     ("uno:A4", "bb1:2t.a"): "#00FFFF",
     ("bb1:2t.b", "lcd:SDA"): "#00FFFF",
     ("uno:A5", "bb1:3t.a"): "#FF00FF",
@@ -49,14 +52,14 @@ WIRE_COLORS = {
     ("neopixel-red:DOUT", "neopixel-green:DIN"): "#FFFFFF",
     ("neopixel-green:DOUT", "neopixel-blue:DIN"): "#FFFFFF",
     ("neopixel-blue:DOUT", "neopixel-yellow:DIN"): "#FFFFFF",
-    ("neopixel-red:VDD", "bb1:tp.4"): "#FF0000",
-    ("neopixel-red:VSS", "bb1:bn.28"): "#000000",
-    ("neopixel-green:VDD", "bb1:tp.4"): "#FF0000",
-    ("neopixel-green:VSS", "bb1:bn.28"): "#000000",
-    ("neopixel-blue:VDD", "bb1:tp.4"): "#FF0000",
-    ("neopixel-blue:VSS", "bb1:bn.28"): "#000000",
-    ("neopixel-yellow:VDD", "bb1:tp.4"): "#FF0000",
-    ("neopixel-yellow:VSS", "bb1:bn.28"): "#000000",
+    ("barrel-jack-breakout:5V", "neopixel-red:VDD"): "#FF0000",
+    ("barrel-jack-breakout:GND", "neopixel-red:VSS"): "#000000",
+    ("barrel-jack-breakout:5V", "neopixel-green:VDD"): "#FF0000",
+    ("barrel-jack-breakout:GND", "neopixel-green:VSS"): "#000000",
+    ("barrel-jack-breakout:5V", "neopixel-blue:VDD"): "#FF0000",
+    ("barrel-jack-breakout:GND", "neopixel-blue:VSS"): "#000000",
+    ("barrel-jack-breakout:5V", "neopixel-yellow:VDD"): "#FF0000",
+    ("barrel-jack-breakout:GND", "neopixel-yellow:VSS"): "#000000",
     ("uno:6", "bb1:6t.a"): "#FF0000",
     ("bb1:4b.j", "bb1:10b.j"): "#000000",
     ("uno:7", "bb1:12t.a"): "#00FF00",
@@ -81,8 +84,11 @@ EXPECTED_CONNECTIONS = {
     visible_connection("uno:GND.1", "bb1:bn.1"),
     visible_connection("bb1:bn.29", "lcd:GND"),
     visible_connection("bb1:bn.30", "dfplayer-mock:GND"),
-    visible_connection("uno:5V", "servo-visual-only:V+"),
-    visible_connection("uno:GND.1", "servo-visual-only:GND"),
+    visible_connection("external-supply:5V", "barrel-jack-breakout:JACK+"),
+    visible_connection("external-supply:GND", "barrel-jack-breakout:JACK-"),
+    visible_connection("barrel-jack-breakout:5V", "servo-visual-only:V+"),
+    visible_connection("barrel-jack-breakout:GND", "servo-visual-only:GND"),
+    visible_connection("barrel-jack-breakout:GND", "uno:GND.1"),
     visible_connection("uno:A4", "bb1:2t.a"),
     visible_connection("bb1:2t.b", "lcd:SDA"),
     visible_connection("uno:A5", "bb1:3t.a"),
@@ -103,14 +109,14 @@ EXPECTED_CONNECTIONS = {
     visible_connection("neopixel-red:DOUT", "neopixel-green:DIN"),
     visible_connection("neopixel-green:DOUT", "neopixel-blue:DIN"),
     visible_connection("neopixel-blue:DOUT", "neopixel-yellow:DIN"),
-    visible_connection("neopixel-red:VDD", "bb1:tp.4"),
-    visible_connection("neopixel-red:VSS", "bb1:bn.28"),
-    visible_connection("neopixel-green:VDD", "bb1:tp.4"),
-    visible_connection("neopixel-green:VSS", "bb1:bn.28"),
-    visible_connection("neopixel-blue:VDD", "bb1:tp.4"),
-    visible_connection("neopixel-blue:VSS", "bb1:bn.28"),
-    visible_connection("neopixel-yellow:VDD", "bb1:tp.4"),
-    visible_connection("neopixel-yellow:VSS", "bb1:bn.28"),
+    visible_connection("barrel-jack-breakout:5V", "neopixel-red:VDD"),
+    visible_connection("barrel-jack-breakout:GND", "neopixel-red:VSS"),
+    visible_connection("barrel-jack-breakout:5V", "neopixel-green:VDD"),
+    visible_connection("barrel-jack-breakout:GND", "neopixel-green:VSS"),
+    visible_connection("barrel-jack-breakout:5V", "neopixel-blue:VDD"),
+    visible_connection("barrel-jack-breakout:GND", "neopixel-blue:VSS"),
+    visible_connection("barrel-jack-breakout:5V", "neopixel-yellow:VDD"),
+    visible_connection("barrel-jack-breakout:GND", "neopixel-yellow:VSS"),
 }
 
 for left_row, right_row in zip(GROUND_BUS_ROWS, GROUND_BUS_ROWS[1:]):
@@ -198,14 +204,25 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         cls.graph = wire_graph(cls.connections)
 
     def test_exact_netlist_and_only_expected_component_bypasses(self):
-        self.assertEqual(len(self.connection_tuples), 66)
-        self.assertEqual(sum(bool(item[2]) for item in self.connection_tuples), 44)
+        self.assertEqual(len(self.connection_tuples), 69)
+        self.assertEqual(sum(bool(item[2]) for item in self.connection_tuples), 47)
         self.assertEqual(sum(item[3] == ("$bb",) for item in self.connection_tuples), 22)
         self.assertEqual(len(self.connection_tuples), len(set(self.connection_tuples)))
         self.assertEqual(set(self.connection_tuples), EXPECTED_CONNECTIONS)
         direct_component_wires = {
-            visible_connection("uno:5V", "servo-visual-only:V+"),
-            visible_connection("uno:GND.1", "servo-visual-only:GND"),
+            visible_connection("external-supply:5V", "barrel-jack-breakout:JACK+"),
+            visible_connection("external-supply:GND", "barrel-jack-breakout:JACK-"),
+            visible_connection("barrel-jack-breakout:5V", "servo-visual-only:V+"),
+            visible_connection("barrel-jack-breakout:GND", "servo-visual-only:GND"),
+            visible_connection("barrel-jack-breakout:GND", "uno:GND.1"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-red:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-red:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-green:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-green:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-blue:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-blue:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-yellow:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-yellow:VSS"),
             visible_connection("uno:2", "neopixel-red:DIN"),
             visible_connection("neopixel-red:DOUT", "neopixel-green:DIN"),
             visible_connection("neopixel-green:DOUT", "neopixel-blue:DIN"),
@@ -225,8 +242,7 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         self.assertEqual(
             direct_uno_component_wires,
             {
-                visible_connection("uno:5V", "servo-visual-only:V+"),
-                visible_connection("uno:GND.1", "servo-visual-only:GND"),
+                visible_connection("barrel-jack-breakout:GND", "uno:GND.1"),
                 visible_connection("uno:2", "neopixel-red:DIN"),
             },
         )
@@ -234,7 +250,7 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         self.assertFalse(any(item[3] == "$bb" for item in self.connections))
 
     def test_visible_wire_colors_follow_electrical_function(self):
-        self.assertEqual(len(WIRE_COLORS), 44)
+        self.assertEqual(len(WIRE_COLORS), 47)
         visible = {
             (left, right): color
             for left, right, color, _attrs in self.connection_tuples
@@ -251,22 +267,25 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
             ("uno:5V", "bb1:tp.1"),
             ("bb1:tp.2", "lcd:VCC"),
             ("bb1:tp.3", "dfplayer-mock:VCC"),
-            ("uno:5V", "servo-visual-only:V+"),
-            ("neopixel-red:VDD", "bb1:tp.4"),
-            ("neopixel-green:VDD", "bb1:tp.4"),
-            ("neopixel-blue:VDD", "bb1:tp.4"),
-            ("neopixel-yellow:VDD", "bb1:tp.4"),
+            ("external-supply:5V", "barrel-jack-breakout:JACK+"),
+            ("barrel-jack-breakout:5V", "servo-visual-only:V+"),
+            ("barrel-jack-breakout:5V", "neopixel-red:VDD"),
+            ("barrel-jack-breakout:5V", "neopixel-green:VDD"),
+            ("barrel-jack-breakout:5V", "neopixel-blue:VDD"),
+            ("barrel-jack-breakout:5V", "neopixel-yellow:VDD"),
         )
         assert_color(
             "#000000",
             ("uno:GND.1", "bb1:bn.1"),
             ("bb1:bn.29", "lcd:GND"),
             ("bb1:bn.30", "dfplayer-mock:GND"),
-            ("uno:GND.1", "servo-visual-only:GND"),
-            ("neopixel-red:VSS", "bb1:bn.28"),
-            ("neopixel-green:VSS", "bb1:bn.28"),
-            ("neopixel-blue:VSS", "bb1:bn.28"),
-            ("neopixel-yellow:VSS", "bb1:bn.28"),
+            ("external-supply:GND", "barrel-jack-breakout:JACK-"),
+            ("barrel-jack-breakout:GND", "servo-visual-only:GND"),
+            ("barrel-jack-breakout:GND", "uno:GND.1"),
+            ("barrel-jack-breakout:GND", "neopixel-red:VSS"),
+            ("barrel-jack-breakout:GND", "neopixel-green:VSS"),
+            ("barrel-jack-breakout:GND", "neopixel-blue:VSS"),
+            ("barrel-jack-breakout:GND", "neopixel-yellow:VSS"),
             ("bb1:4b.j", "bb1:10b.j"),
             ("bb1:10b.j", "bb1:16b.j"),
             ("bb1:16b.j", "bb1:22b.j"),
@@ -347,6 +366,8 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         self.assertEqual(self.parts["lcd"]["type"], "chip-grove-jhd1804")
         self.assertEqual(self.parts["dfplayer-mock"]["type"], "chip-dfplayer-mock")
         self.assertEqual(self.parts["visual-speaker"]["type"], "chip-visual-speaker")
+        self.assertEqual(self.parts["external-supply"]["type"], "chip-external-supply")
+        self.assertEqual(self.parts["barrel-jack-breakout"]["type"], "chip-barrel-jack-breakout")
         self.assertEqual(self.parts["servo-visual-only"]["type"], "wokwi-servo")
 
     def test_buttons_keep_released_gpio_and_ground_contacts_separate(self):
@@ -382,7 +403,7 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
                     if other_gpio != gpio:
                         self.assertFalse(reachable(released_graph, gpio_node, f"uno:{other_gpio}"))
 
-    def test_neopixel_chain_and_simulated_rails_follow_strip_order(self):
+    def test_neopixel_and_servo_power_route_through_barrel_breakout_separate_from_uno_5v(self):
         strip_ids = (
             "neopixel-red",
             "neopixel-green",
@@ -401,11 +422,22 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
                 self.assertIn(visible_connection(left, right), self.connection_tuples)
                 self.assertIn(right, self.graph[left])
 
+        power_graph = wire_graph(self.connections)
+        # The custom visual-only breakout implies two passive internal terminals;
+        # these bridges define the intended physical net without claiming a sim model.
+        connect_graph(power_graph, "barrel-jack-breakout:JACK+", "barrel-jack-breakout:5V")
+        connect_graph(power_graph, "barrel-jack-breakout:JACK-", "barrel-jack-breakout:GND")
         for strip_id in strip_ids:
             with self.subTest(strip=strip_id):
-                self.assertTrue(reachable(self.graph, "uno:5V", f"{strip_id}:VDD"))
-                self.assertTrue(reachable(self.graph, "uno:GND.1", f"{strip_id}:VSS"))
-                self.assertFalse(reachable(self.graph, f"{strip_id}:VDD", f"{strip_id}:VSS"))
+                self.assertTrue(reachable(power_graph, "external-supply:5V", f"{strip_id}:VDD"))
+                self.assertTrue(reachable(power_graph, "external-supply:GND", f"{strip_id}:VSS"))
+                self.assertFalse(reachable(power_graph, "uno:5V", f"{strip_id}:VDD"))
+                self.assertFalse(reachable(power_graph, f"{strip_id}:VDD", f"{strip_id}:VSS"))
+        self.assertTrue(reachable(power_graph, "external-supply:5V", "servo-visual-only:V+"))
+        self.assertTrue(reachable(power_graph, "external-supply:GND", "servo-visual-only:GND"))
+        self.assertTrue(reachable(power_graph, "external-supply:GND", "uno:GND.1"))
+        self.assertFalse(reachable(power_graph, "uno:5V", "servo-visual-only:V+"))
+        self.assertFalse(reachable(power_graph, "external-supply:5V", "uno:5V"))
 
     def test_d11_1k_resistor_separates_uno_tx_from_mock_rx(self):
         self.assertTrue(reachable(self.graph, "uno:11", "mp3-tx-resistor:1"))

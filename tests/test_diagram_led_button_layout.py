@@ -77,7 +77,7 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
         )
 
     def test_buttons_and_four_strips_follow_reference_coordinates(self):
-        self.assertEqual(len(self.diagram["parts"]), 16)
+        self.assertEqual(len(self.diagram["parts"]), 18)
         self.assertEqual(len(BUTTON_ROWS), 5)
         for button_id, (contact1, contact2) in BUTTON_ROWS.items():
             with self.subTest(button=button_id):
@@ -208,8 +208,8 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
 
     def test_every_editor_generated_component_placement_uses_an_array_attribute(self):
         placements = [wire for wire in self.diagram["connections"] if wire[3] == ["$bb"]]
-        self.assertEqual(len(self.diagram["connections"]), 66)
-        self.assertEqual(sum(bool(wire[2]) for wire in self.diagram["connections"]), 44)
+        self.assertEqual(len(self.diagram["connections"]), 69)
+        self.assertEqual(sum(bool(wire[2]) for wire in self.diagram["connections"]), 47)
         self.assertEqual(len(placements), 22)
         self.assertTrue(all(isinstance(wire[3], list) for wire in placements))
         self.assertFalse(any(wire[3] == "$bb" for wire in self.diagram["connections"]))
@@ -222,6 +222,8 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             "servo-visual-only": (680, 125),
             "dfplayer-mock": (680, 405),
             "visual-speaker": (820, 405),
+            "external-supply": (820, 235),
+            "barrel-jack-breakout": (820, 320),
         }
         for part_id, (left, top) in expected_anchors.items():
             with self.subTest(part=part_id):
