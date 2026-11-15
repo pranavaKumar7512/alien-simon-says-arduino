@@ -96,6 +96,7 @@ bool buttonMappingDemoPending = false;
 bool buttonMappingDemoActive = false;
 uint32_t buttonMappingDemoRound = 0UL;
 bool startConsumed = false;
+bool serialStartPending = false;
 bool restartAfterGameOver = false;
 bool audioRunning = false;
 bool audioNeedsInitialStop = true; // DFPlayer may outlive an MCU reset
@@ -109,7 +110,13 @@ uint8_t lcdInitStage = 0;
 bool celebrationWaitingForAudio = false;
 
 SoftwareSerial mp3Serial(MP3_RX_PIN, MP3_TX_PIN);
-Adafruit_NeoPixel playerStrip(PLAYER_LED_PIXEL_COUNT, PLAYER_LED_DATA_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel playerStripRed(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[0], NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel playerStripGreen(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[1], NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel playerStripBlue(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[2], NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel playerStripYellow(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[3], NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel *const playerStrips[PLAYER_LED_SYMBOL_COUNT] = {
+  &playerStripRed, &playerStripGreen, &playerStripBlue, &playerStripYellow
+};
 DFRobotDFPlayerMini mp3;
 bool mp3Ready = false;
 
@@ -257,11 +264,12 @@ static void refreshRoundDisplay() {
 static void allLedsOff();
 static bool showButtonMapping();
 static void writePlayerPixel(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue);
+static void showPlayerStrips();
 
 static void beginButtonMappingDemo(uint32_t effectiveRound) {
   // Each four-pixel strip is physically aligned with one left-to-right button
-  // position. Recolor all four groups in one show() so the complete map is
-  // visible simultaneously without relying on the buttons' casing colors.
+  // position. Update and show all four independent outputs so the complete map
+  // is visible simultaneously without relying on the buttons' casing colors.
   if (!showButtonMapping()) {
     buttonMappingDemoActive = false;
     return;
@@ -327,7 +335,16 @@ static void logInputMapping(uint32_t effectiveRound) {
 }
 
 static void writePlayerPixel(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue) {
-  playerStrip.setPixelColor(pixel, playerStrip.Color(red, green, blue));
+  const uint8_t strip = playerLedStripForPixel(pixel);
+  if (strip >= PLAYER_LED_SYMBOL_COUNT) return;
+  Adafruit_NeoPixel *const output = playerStrips[strip];
+  output->setPixelColor(playerLedPixelWithinStrip(pixel), output->Color(red, green, blue));
+}
+
+static void showPlayerStrips() {
+  for (uint8_t strip = 0U; strip < PLAYER_LED_SYMBOL_COUNT; ++strip) {
+    playerStrips[strip]->show();
+  }
 }
 
 static void writeServoPulseTicks(uint16_t ticks) {
@@ -358,7 +375,7 @@ static void setLed(uint8_t symbol, bool on) {
     return;
   }
   if (!playerLedSetMappedCue(buttonToCueColor, symbol, on, writePlayerPixel)) return;
-  playerStrip.show();
+  showPlayerStrips();
 #if defined(WOKWI_SIM)
   if (on) {
     Serial.print(F("SIM_MAPPED_LED_ON:"));
@@ -376,13 +393,15 @@ static bool showButtonMapping() {
     allLedsOff();
     return false;
   }
-  playerStrip.show();
+  showPlayerStrips();
   return true;
 }
 
 static void allLedsOff() {
-  playerStrip.clear();
-  playerStrip.show();
+  for (uint8_t strip = 0U; strip < PLAYER_LED_SYMBOL_COUNT; ++strip) {
+    playerStrips[strip]->clear();
+  }
+  showPlayerStrips();
 }
 
 static void saveBestScore() {
@@ -738,6 +757,16 @@ static void updateButtons(uint32_t now) {
   }
 }
 
+static void pollSerialStartCommand() {
+  while (Serial.available() > 0) {
+    const int received = Serial.read();
+    if (received == 'S' || received == 's') {
+      serialStartPending = true;
+      Serial.println(F("SERIAL_START_REQUESTED"));
+    }
+  }
+}
+
 static uint8_t countPlayButtonsDown(uint8_t *onlyButton) {
   uint8_t count = 0;
   for (uint8_t i = 0; i < 4; ++i) {
@@ -766,10 +795,12 @@ void setup() {
   Wire.begin();
   Wire.setWireTimeout(25000UL, true); // Bound LCD I2C transactions if the bus stalls.
   lcdWaitStartedAt = millis();
-  playerStrip.begin();
-  playerStrip.setBrightness(PLAYER_LED_BRIGHTNESS);
+  for (uint8_t strip = 0U; strip < PLAYER_LED_SYMBOL_COUNT; ++strip) {
+    playerStrips[strip]->begin();
+    playerStrips[strip]->setBrightness(PLAYER_LED_BRIGHTNESS);
+  }
   playerLedSetAllMappedColors(writePlayerPixel);
-  playerStrip.show();
+  showPlayerStrips();
   delay(500);
   allLedsOff();
   const uint32_t now = millis();
@@ -796,6 +827,7 @@ void setup() {
 
 void loop() {
   const uint32_t now = millis();
+  pollSerialStartCommand();
   updateButtons(now);
   if (!serviceLcdInitialization(now)) return;
   if (idlePageStartedAt == 0) {
@@ -804,11 +836,18 @@ void loop() {
     Serial.println(F("READY"));
   }
   bool startActionHandled = false;
+  const bool serialStartAction = serialStartPending;
+  serialStartPending = false;
   if (!buttons[4].pressed) {
     startConsumed = false;
   } else if (!startConsumed) {
     startActionHandled = true;
     startConsumed = true;
+  }
+  if (!startActionHandled && serialStartAction) {
+    startActionHandled = true;
+  }
+  if (startActionHandled) {
     if (gameState == IDLE) {
       beginGame();
     } else if (gameState == GAME_OVER) {
@@ -928,7 +967,7 @@ void loop() {
           beginGameOver(inputPressedAt, false);
           break;
         }
-        playerStrip.show();
+        showPlayerStrips();
         buttonFeedbackStartedAt = millis();
 #if defined(WOKWI_SIM)
         const uint32_t mappedLedOffAt = buttonFeedbackStartedAt;

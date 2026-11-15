@@ -1,6 +1,6 @@
 {
-  "name": "Female DC barrel jack to 2-screw-terminal breakout (visual only)",
+  "name": "Female DC barrel jack to 2-screw-terminal breakout (VCC = +5V; visual only)",
   "author": "Project-local visual-only model",
-  "pins": ["JACK+", "JACK-", "5V", "GND"],
+  "pins": ["VCC", "GND"],
   "controls": []
 }

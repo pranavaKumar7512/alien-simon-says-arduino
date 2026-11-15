@@ -69,8 +69,17 @@ int main(void) {
   assert(PLAYER_LED_PIXEL_COUNT == 16U);
   assert(PLAYER_LED_SYMBOL_COUNT == 4U);
   assert(PLAYER_LED_PIXELS_PER_SYMBOL == 4U);
-  assert(PLAYER_LED_DATA_PIN == 2U);
+  assert(PLAYER_LED_DATA_PINS[0] == 2U);
+  assert(PLAYER_LED_DATA_PINS[1] == 3U);
+  assert(PLAYER_LED_DATA_PINS[2] == 4U);
+  assert(PLAYER_LED_DATA_PINS[3] == 5U);
   assert(PLAYER_LED_BRIGHTNESS == 255U);
+  for (uint8_t pixel = 0U; pixel < PLAYER_LED_PIXEL_COUNT; ++pixel) {
+    assert(playerLedStripForPixel(pixel) == pixel / PLAYER_LED_PIXELS_PER_SYMBOL);
+    assert(playerLedPixelWithinStrip(pixel) == pixel % PLAYER_LED_PIXELS_PER_SYMBOL);
+  }
+  assert(playerLedStripForPixel(PLAYER_LED_PIXEL_COUNT) == PLAYER_LED_SYMBOL_COUNT);
+  assert(playerLedPixelWithinStrip(PLAYER_LED_PIXEL_COUNT) == PLAYER_LED_PIXELS_PER_SYMBOL);
 
   for (uint8_t symbol = 0; symbol < PLAYER_LED_SYMBOL_COUNT; ++symbol) {
     reset_pixels();

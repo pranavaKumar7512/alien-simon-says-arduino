@@ -13,8 +13,9 @@
     {
       "type": "wokwi-arduino-uno",
       "id": "uno",
-      "top": 35,
-      "left": 300,
+      "top": 0,
+      "left": 260,
+      "rotate": 45,
       "attrs": {}
     },
     {
@@ -22,6 +23,7 @@
       "id": "lcd",
       "top": 300,
       "left": 150,
+      "rotate": 45,
       "attrs": {}
     },
     {
@@ -36,6 +38,7 @@
       "id": "dfplayer-mock",
       "top": 405,
       "left": 680,
+      "rotate": 45,
       "attrs": {
         "completionDelayMs": "250"
       }
@@ -45,13 +48,7 @@
       "id": "visual-speaker",
       "top": 405,
       "left": 820,
-      "attrs": {}
-    },
-    {
-      "type": "chip-external-supply",
-      "id": "external-supply",
-      "top": 235,
-      "left": 820,
+      "rotate": 45,
       "attrs": {}
     },
     {
@@ -59,6 +56,7 @@
       "id": "barrel-jack-breakout",
       "top": 320,
       "left": 820,
+      "rotate": 45,
       "attrs": {}
     },
     {
@@ -124,9 +122,9 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-red",
-      "top": 359,
-      "left": 387.537,
-      "rotate": 90,
+      "top": 60,
+      "left": 647.537,
+      "rotate": 225,
       "attrs": {
         "pixels": "4",
         "pixelSize": "2020"
@@ -135,9 +133,9 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-green",
-      "top": 359,
-      "left": 445.137,
-      "rotate": 90,
+      "top": 60,
+      "left": 727.537,
+      "rotate": 225,
       "attrs": {
         "pixels": "4",
         "pixelSize": "2020"
@@ -146,9 +144,9 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-blue",
-      "top": 359,
-      "left": 502.737,
-      "rotate": 90,
+      "top": 60,
+      "left": 807.537,
+      "rotate": 225,
       "attrs": {
         "pixels": "4",
         "pixelSize": "2020"
@@ -157,9 +155,9 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-yellow",
-      "top": 359,
-      "left": 560.337,
-      "rotate": 90,
+      "top": 60,
+      "left": 887.537,
+      "rotate": 225,
       "attrs": {
         "pixels": "4",
         "pixelSize": "2020"
@@ -200,18 +198,6 @@
     [
       "bb1:bn.30",
       "dfplayer-mock:GND",
-      "#000000",
-      []
-    ],
-    [
-      "external-supply:5V",
-      "barrel-jack-breakout:JACK+",
-      "#FF0000",
-      []
-    ],
-    [
-      "external-supply:GND",
-      "barrel-jack-breakout:JACK-",
       "#000000",
       []
     ],
@@ -415,7 +401,6 @@
         "$bb"
       ]
     ],
-
     [
       "uno:8",
       "bb1:18t.a",
@@ -498,7 +483,6 @@
         "$bb"
       ]
     ],
-
     [
       "uno:A1",
       "bb1:30t.a",
@@ -508,22 +492,6 @@
     [
       "button-start:1.l",
       "bb1:30t.e",
-      "",
-      [
-        "$bb"
-      ]
-    ],
-    [
-      "button-start:1.r",
-      "bb1:30b.f",
-      "",
-      [
-        "$bb"
-      ]
-    ],
-    [
-      "button-start:2.l",
-      "bb1:28t.e",
       "",
       [
         "$bb"
@@ -556,36 +524,6 @@
       []
     ],
     [
-      "uno:2",
-      "neopixel-red:DIN",
-      "#FFFFFF",
-      []
-    ],
-    [
-      "neopixel-red:DOUT",
-      "neopixel-green:DIN",
-      "#FFFFFF",
-      []
-    ],
-    [
-      "neopixel-green:DOUT",
-      "neopixel-blue:DIN",
-      "#FFFFFF",
-      []
-    ],
-    [
-      "neopixel-blue:DOUT",
-      "neopixel-yellow:DIN",
-      "#FFFFFF",
-      []
-    ],
-    [
-      "barrel-jack-breakout:5V",
-      "neopixel-red:VDD",
-      "#FF0000",
-      []
-    ],
-    [
       "barrel-jack-breakout:GND",
       "neopixel-red:VSS",
       "#000000",
@@ -593,7 +531,7 @@
     ],
     [
       "barrel-jack-breakout:5V",
-      "neopixel-green:VDD",
+      "neopixel-red:VDD",
       "#FF0000",
       []
     ],
@@ -605,7 +543,7 @@
     ],
     [
       "barrel-jack-breakout:5V",
-      "neopixel-blue:VDD",
+      "neopixel-green:VDD",
       "#FF0000",
       []
     ],
@@ -617,7 +555,7 @@
     ],
     [
       "barrel-jack-breakout:5V",
-      "neopixel-yellow:VDD",
+      "neopixel-blue:VDD",
       "#FF0000",
       []
     ],
@@ -625,6 +563,36 @@
       "barrel-jack-breakout:GND",
       "neopixel-yellow:VSS",
       "#000000",
+      []
+    ],
+    [
+      "barrel-jack-breakout:5V",
+      "neopixel-yellow:VDD",
+      "#FF0000",
+      []
+    ],
+    [
+      "uno:2",
+      "neopixel-red:DIN",
+      "#FFFFFF",
+      []
+    ],
+    [
+      "uno:3",
+      "neopixel-green:DIN",
+      "#FFFFFF",
+      []
+    ],
+    [
+      "uno:4",
+      "neopixel-blue:DIN",
+      "#FFFFFF",
+      []
+    ],
+    [
+      "uno:5",
+      "neopixel-yellow:DIN",
+      "#FFFFFF",
       []
     ]
   ],

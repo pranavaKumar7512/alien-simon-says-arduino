@@ -9,15 +9,24 @@ from itertools import combinations
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BOARD_TOP = 350
+BOARD2_TOP = 590
 BOARD_LEFT = 330
 DIAGRAM_ROW_PITCH = 9.6
 CSS_ROW_PITCH = 7.65
 CSS_SCALE = CSS_ROW_PITCH / DIAGRAM_ROW_PITCH
 BOARD_CSS_WIDTH = 261.9484
 BOARD_CSS_HEIGHT = 165.5952
-
-# Wokwi's pixelSize="2020" is documented as a 9px LED rendering.
-LED_STRIP_PIXEL_CSS_SIZE = 9.0
+STRIP_PITCH = 80
+STRIP_LEFTS = {
+    "neopixel-red": 647.537,
+    "neopixel-green": 727.537,
+    "neopixel-blue": 807.537,
+    "neopixel-yellow": 887.537,
+}
+STRIP_COLORS = ("red", "green", "blue", "yellow")
+EXPECTED_PART_COUNT = 18
+EXPECTED_CONNECTION_COUNT = 66
+EXPECTED_COLORED_CONNECTION_COUNT = 46
 BUTTON_BODY = (20.7212, 22.3145, 0.78274, -0.82034)
 RESISTOR_BODY = (9.02873, 47.10189, 19.02441, -19.06064)
 BUTTON_ROWS = {
@@ -36,11 +45,24 @@ BUTTON_COLORS = {
 }
 
 
+def css_anchor(part):
+    # Diagram anchors are scaled relative to bb1; footprint offsets are CSS pixels.
+    return (
+        BOARD_LEFT + (part["left"] - BOARD_LEFT) * CSS_SCALE,
+        BOARD_TOP + (part["top"] - BOARD_TOP) * CSS_SCALE,
+    )
+
+
 def css_body_box(part, body_measurement):
     width, height, offset_x, offset_y = body_measurement
-    left = BOARD_LEFT + (part["left"] - BOARD_LEFT) * CSS_SCALE + offset_x
-    top = BOARD_TOP + (part["top"] - BOARD_TOP) * CSS_SCALE + offset_y
-    return (left, top, left + width, top + height)
+    left, top = css_anchor(part)
+    return (left + offset_x, top + offset_y,
+            left + offset_x + width, top + offset_y + height)
+
+
+def css_board_box(board):
+    left, top = css_anchor(board)
+    return (left, top, left + BOARD_CSS_WIDTH, top + BOARD_CSS_HEIGHT)
 
 
 def css_edge_clearance(first, second):
@@ -63,21 +85,30 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             cls.diagram = json.load(diagram_file)
         cls.parts = {part["id"]: part for part in cls.diagram["parts"]}
 
-    def test_one_half_breadboard_uses_the_requested_origin(self):
+    def test_two_half_breadboards_use_non_overlapping_footprints(self):
         boards = [part for part in self.diagram["parts"] if part["type"] == "wokwi-breadboard-half"]
-        self.assertEqual(len(boards), 1)
+        self.assertEqual([board["id"] for board in boards], ["bb1", "bb2"])
         self.assertEqual(
             {key: boards[0][key] for key in ("id", "top", "left", "attrs")},
             {"id": "bb1", "top": BOARD_TOP, "left": BOARD_LEFT, "attrs": {}},
         )
         self.assertEqual(
-            self.diagram["parts"][0]["id"],
-            "bb1",
-            "the breadboard must render behind its inserted components",
+            {key: boards[1][key] for key in ("id", "top", "left", "attrs")},
+            {"id": "bb2", "top": BOARD2_TOP, "left": 330, "attrs": {}},
+        )
+        bb1_box = css_board_box(boards[0])
+        bb2_box = css_board_box(boards[1])
+        self.assertFalse(boxes_overlap(bb1_box, bb2_box))
+        self.assertAlmostEqual(css_edge_clearance(bb1_box, bb2_box), 25.6548)
+        self.assertLess(bb2_box[2], css_anchor(self.parts["servo-visual-only"])[0])
+        self.assertEqual(
+            [part["id"] for part in self.diagram["parts"][:2]],
+            ["bb1", "bb2"],
+            "both breadboards must render behind their inserted components",
         )
 
-    def test_buttons_and_four_strips_follow_reference_coordinates(self):
-        self.assertEqual(len(self.diagram["parts"]), 18)
+    def test_buttons_and_strips_follow_reference_coordinates(self):
+        self.assertEqual(len(self.diagram["parts"]), EXPECTED_PART_COUNT)
         self.assertEqual(len(BUTTON_ROWS), 5)
         for button_id, (contact1, contact2) in BUTTON_ROWS.items():
             with self.subTest(button=button_id):
@@ -95,24 +126,25 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
                 self.assertEqual(contact1 - contact2, 2)
 
         strip_ids = {
-            "button-red": "neopixel-red",
-            "button-green": "neopixel-green",
-            "button-blue": "neopixel-blue",
-            "button-yellow": "neopixel-yellow",
+            f"button-{color}": f"neopixel-{color}"
+            for color in STRIP_COLORS
         }
         self.assertEqual(
             {part_id for part_id in self.parts if part_id.startswith("neopixel-")},
             set(strip_ids.values()),
+        )
+        self.assertEqual(
+            [part["id"] for part in self.diagram["parts"] if part["id"].startswith("neopixel-")],
+            [f"neopixel-{color}" for color in STRIP_COLORS],
         )
         for button_id, strip_id in strip_ids.items():
             with self.subTest(strip=strip_id):
                 strip = self.parts[strip_id]
                 button = self.parts[button_id]
                 self.assertEqual(strip["type"], "wokwi-led-strip")
-                self.assertEqual(strip["attrs"]["pixels"], "4")
-                self.assertEqual(strip["attrs"]["pixelSize"], "2020")
-                self.assertEqual(strip["rotate"], 90)
-                self.assertAlmostEqual(strip["top"], 359)
+                self.assertEqual(strip["attrs"], {"pixels": "4", "pixelSize": "2020"})
+                self.assertEqual(strip["rotate"], 225)
+                self.assertAlmostEqual(strip["top"], 60)
                 self.assertLess(strip["top"], button["top"])
 
         tx_resistor = self.parts["mp3-tx-resistor"]
@@ -129,38 +161,43 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
         occupied_rows += [1]
         self.assertTrue(all(row in range(1, 31) for row in occupied_rows))
 
-    def test_strip_nominal_centers_align_with_matching_button_centers(self):
-        # Static anchor calculation only: pixelSize is documented as a nominal 9px
-        # package for "2020". The strip's rendered bounds/offset are not measured.
-        strip_ids = {
-            "button-red": "neopixel-red",
-            "button-green": "neopixel-green",
-            "button-blue": "neopixel-blue",
-            "button-yellow": "neopixel-yellow",
-        }
-        for button_id, strip_id in strip_ids.items():
-            button = self.parts[button_id]
-            strip = self.parts[strip_id]
-            button_box = css_body_box(button, BUTTON_BODY)
-            button_center = (button_box[0] + button_box[2]) / 2
-            strip_anchor_left = BOARD_LEFT + (strip["left"] - BOARD_LEFT) * CSS_SCALE
-            strip_nominal_center = strip_anchor_left + LED_STRIP_PIXEL_CSS_SIZE / 2
+    def test_strip_group_preserves_color_order_and_80_unit_pitch(self):
+        strip_ids = [f"neopixel-{color}" for color in STRIP_COLORS]
+        strip_lefts = [self.parts[strip_id]["left"] for strip_id in strip_ids]
+        for strip_id in strip_ids:
             with self.subTest(strip=strip_id):
-                self.assertAlmostEqual(strip_nominal_center, button_center, places=2)
+                self.assertAlmostEqual(self.parts[strip_id]["left"], STRIP_LEFTS[strip_id])
+        for left, right in zip(strip_lefts, strip_lefts[1:]):
+            self.assertAlmostEqual(right - left, STRIP_PITCH)
+
+    def test_each_strip_uses_its_direct_uno_data_net_without_dout_chaining(self):
+        expected_data_links = {
+            ("uno:2", "neopixel-red:DIN"),
+            ("uno:3", "neopixel-green:DIN"),
+            ("uno:4", "neopixel-blue:DIN"),
+            ("uno:5", "neopixel-yellow:DIN"),
+        }
+        actual_data_links = {
+            (wire[0], wire[1])
+            for wire in self.diagram["connections"]
+            if wire[0] in {"uno:2", "uno:3", "uno:4", "uno:5"}
+            or wire[1].endswith(":DIN")
+        }
+        self.assertEqual(actual_data_links, expected_data_links)
+        self.assertFalse(
+            any(endpoint.endswith(":DOUT")
+                for wire in self.diagram["connections"] for endpoint in wire[:2]),
+            "independent strip outputs must not be chained through DOUT",
+        )
 
     def test_measured_button_and_resistor_bodies_fit_and_keep_minimum_clearances(self):
         self.assertAlmostEqual(CSS_SCALE, 0.796875)
-        board_box = (
-            BOARD_LEFT,
-            BOARD_TOP,
-            BOARD_LEFT + BOARD_CSS_WIDTH,
-            BOARD_TOP + BOARD_CSS_HEIGHT,
-        )
+        board_box = css_board_box(self.parts["bb1"])
         button_boxes = {
             button_id: css_body_box(self.parts[button_id], BUTTON_BODY)
             for button_id in BUTTON_ROWS
         }
-        # Both 90-degree resistors use the same measured Wokwi body fixture.
+        # The measured body fixture is checked in its original board-local orientation.
         resistor_ids = [
             "mp3-tx-resistor",
         ]
@@ -172,6 +209,10 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             **button_boxes,
             **resistor_boxes,
         }
+        bb2_box = css_board_box(self.parts["bb2"])
+        for part_id, body_box in all_boxes.items():
+            with self.subTest(part=part_id, board="bb2"):
+                self.assertFalse(boxes_overlap(body_box, bb2_box))
 
         for part_id, body_box in all_boxes.items():
             with self.subTest(part=part_id):
@@ -208,27 +249,46 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
 
     def test_every_editor_generated_component_placement_uses_an_array_attribute(self):
         placements = [wire for wire in self.diagram["connections"] if wire[3] == ["$bb"]]
-        self.assertEqual(len(self.diagram["connections"]), 69)
-        self.assertEqual(sum(bool(wire[2]) for wire in self.diagram["connections"]), 47)
-        self.assertEqual(len(placements), 22)
+        self.assertEqual(len(self.diagram["connections"]), EXPECTED_CONNECTION_COUNT)
+        self.assertEqual(
+            sum(bool(wire[2]) for wire in self.diagram["connections"]),
+            EXPECTED_COLORED_CONNECTION_COUNT,
+        )
+        self.assertEqual(len(placements), 20)
         self.assertTrue(all(isinstance(wire[3], list) for wire in placements))
         self.assertFalse(any(wire[3] == "$bb" for wire in self.diagram["connections"]))
+
+    def test_dfplayer_mock_keeps_its_anchor_and_clockwise_rotation(self):
+        dfplayer = self.parts["dfplayer-mock"]
+        self.assertEqual((dfplayer["left"], dfplayer["top"]), (680, 405))
+        self.assertEqual(dfplayer["rotate"], 45)
 
     def test_reviewed_external_component_anchors_match_the_compact_layout(self):
         # Static anchor regression only; body clearances still need a rendered review.
         expected_anchors = {
-            "uno": (300, 35),
+            "uno": (260, 0),
             "lcd": (150, 300),
             "servo-visual-only": (680, 125),
             "dfplayer-mock": (680, 405),
             "visual-speaker": (820, 405),
-            "external-supply": (820, 235),
             "barrel-jack-breakout": (820, 320),
+        }
+        expected_rotations = {
+            "uno": 45,
+            "lcd": 45,
+            "servo-visual-only": None,
+            "dfplayer-mock": 45,
+            "visual-speaker": 45,
+            "barrel-jack-breakout": 45,
         }
         for part_id, (left, top) in expected_anchors.items():
             with self.subTest(part=part_id):
                 self.assertAlmostEqual(self.parts[part_id]["left"], left)
                 self.assertAlmostEqual(self.parts[part_id]["top"], top)
+                if expected_rotations[part_id] is None:
+                    self.assertNotIn("rotate", self.parts[part_id])
+                else:
+                    self.assertEqual(self.parts[part_id]["rotate"], expected_rotations[part_id])
 
 
 if __name__ == "__main__":

@@ -7,8 +7,22 @@
 #define PLAYER_LED_SYMBOL_COUNT 4U
 #define PLAYER_LED_PIXELS_PER_SYMBOL 4U
 #define PLAYER_LED_PIXEL_COUNT (PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL)
-#define PLAYER_LED_DATA_PIN 2U
 #define PLAYER_LED_BRIGHTNESS 255U
+
+// Independent data outputs for the red, green, blue, and yellow strips.
+static const uint8_t PLAYER_LED_DATA_PINS[PLAYER_LED_SYMBOL_COUNT] = {2U, 3U, 4U, 5U};
+
+static inline uint8_t playerLedStripForPixel(uint8_t pixel) {
+  return pixel < PLAYER_LED_PIXEL_COUNT
+             ? (uint8_t)(pixel / PLAYER_LED_PIXELS_PER_SYMBOL)
+             : PLAYER_LED_SYMBOL_COUNT;
+}
+
+static inline uint8_t playerLedPixelWithinStrip(uint8_t pixel) {
+  return pixel < PLAYER_LED_PIXEL_COUNT
+             ? (uint8_t)(pixel % PLAYER_LED_PIXELS_PER_SYMBOL)
+             : PLAYER_LED_PIXELS_PER_SYMBOL;
+}
 
 typedef struct {
   uint8_t red;
