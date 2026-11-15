@@ -56,7 +56,7 @@ struct BestScoreRecord {
 static_assert(sizeof(BestScoreRecord) <= FIRST_COLOR_JOURNAL_BASE,
               "First-color journal must not overlap the best-score record");
 static_assert(PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL == PLAYER_LED_PIXEL_COUNT,
-              "There must be four NeoPixels for each Simon symbol");
+              "Each Simon symbol must map to its configured number of NeoPixels");
 static_assert(PLAYER_LED_SYMBOL_COUNT == FIRST_COLOR_COUNT,
               "First-color journal and play-button symbols must match");
 static_assert(BUTTON_MAPPING_COUNT == PLAYER_LED_SYMBOL_COUNT,
@@ -265,8 +265,8 @@ static bool showButtonMapping();
 static void writePlayerPixel(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue);
 
 static void beginButtonMappingDemo(uint32_t effectiveRound) {
-  // Each four-pixel strip is physically aligned with one left-to-right button
-  // position. Recolor all four groups in one show() so the complete map is
+  // Each six-pixel strip is aligned with one left-to-right button position.
+  // Recolor all four groups in one show() so the complete map is
   // visible simultaneously without relying on the buttons' casing colors.
   if (!showButtonMapping()) {
     buttonMappingDemoActive = false;
@@ -544,7 +544,7 @@ static void startTrack(uint8_t track, bool gameOverTrack = false) {
   audioFinished = false;
   audioRunning = true;
   audioStartedAt = millis();
-  if (mp3Ready) mp3.playMp3Folder(track); // /mp3/0001.mp3 through /mp3/0005.mp3
+  if (mp3Ready) mp3.playMp3Folder(track); // /mp3/0001.mp3 through /mp3/0007.mp3
 #if defined(WOKWI_SIM)
   Serial.print(F("SIM_AUDIO_START:"));
   Serial.println(track);
@@ -730,10 +730,7 @@ static void completeCorrectAnswer(uint32_t now) {
     updateDisplay("ROUND COMPLETE", "CELEBRATION");
     buttonMappingDemoRound = completedRounds + 1UL;
     buttonMappingDemoPending = true;
-    uint32_t celebrationState = sequenceSeed ^ now ^ completedRounds;
-    if (celebrationState == 0) celebrationState = 0x6D2B79F5UL;
-    uint8_t track = (uint8_t)(nextAudioSymbol(celebrationState) + 1U);
-    startTrack(track);
+    startTrack(AUDIO_ROUND_CELEBRATION_TRACK);
     celebrationWaitingForAudio = true;
     gameState = CELEBRATION;
     return;

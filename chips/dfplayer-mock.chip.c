@@ -150,7 +150,7 @@ void chip_init(void) {
   pending_track = 0;
   completion_pending = false;
   received_count = 0;
-  completion_delay_attribute = attr_init("completionDelayMs", 250);
+  completion_delay_attribute = attr_init("completionDelayMs", 2000);
 
   uart_config.user_data = NULL;
   uart_config.rx = pin_init("RX", INPUT);

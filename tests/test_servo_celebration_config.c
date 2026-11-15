@@ -35,10 +35,23 @@ int main(void) {
   assert(SERVO_PWM_FRAME_TICKS == 40000UL);
   assert(SERVO_PWM_FRAME_US == 20000UL);
   assert(SERVO_PWM_TOP_TICKS == 39999UL);
-  assert(servoAngleToPulseTicks(0U) == 1084U);   // (544 us - 2 us) * 2
-  assert(servoAngleToPulseTicks(90U) == 2940U);  // (1472 us - 2 us) * 2
-  assert(servoAngleToPulseTicks(180U) == 4796U); // (2400 us - 2 us) * 2
-  assert(servoAngleToPulseTicks(255U) == 4796U);
+  assert(SERVO_DEFAULT_MIN_PULSE_US == 700U);
+  assert(SERVO_DEFAULT_MAX_PULSE_US == 2300U);
+  assert(servoAngleToPulseTicks(0U) == 1400U);   // 700 us * 2 Timer1 ticks/us
+  assert(servoAngleToPulseTicks(90U) == 3000U);  // 1500 us * 2 Timer1 ticks/us
+  assert(servoAngleToPulseTicks(180U) == 4600U); // 2300 us * 2 Timer1 ticks/us
+  assert(servoAngleToPulseTicks(255U) == 4600U); // Angles above 180 degrees clamp.
+
+  for (uint16_t angle = 0U; angle < 256U; ++angle) {
+    const uint8_t boundedAngle = angle > 180U ? 180U : (uint8_t)angle;
+    const uint16_t ticks = servoAngleToPulseTicks((uint8_t)angle);
+    const uint32_t expectedPulseUs = SERVO_DEFAULT_MIN_PULSE_US +
+        ((uint32_t)(SERVO_DEFAULT_MAX_PULSE_US - SERVO_DEFAULT_MIN_PULSE_US) *
+         boundedAngle) / 180UL;
+    assert(ticks == expectedPulseUs * SERVO_TIMER_TICKS_PER_US);
+    assert(ticks >= SERVO_DEFAULT_MIN_PULSE_US * SERVO_TIMER_TICKS_PER_US);
+    assert(ticks <= SERVO_DEFAULT_MAX_PULSE_US * SERVO_TIMER_TICKS_PER_US);
+  }
 
 #if defined(WOKWI_SIM)
   assert(SERVO_GAME_OVER_EXTEND_ANGLE == 180U);

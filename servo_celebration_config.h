@@ -16,9 +16,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define SERVO_DEFAULT_MIN_PULSE_US 544U
-#define SERVO_DEFAULT_MAX_PULSE_US 2400U
-#define SERVO_DEFAULT_PULSE_TRIM_US 2U
+#define SERVO_DEFAULT_MIN_PULSE_US 700U
+#define SERVO_DEFAULT_MAX_PULSE_US 2300U
 #define SERVO_PWM_CPU_HZ 16000000UL
 #define SERVO_PWM_PRESCALER 8UL
 #define SERVO_TIMER_TICKS_PER_US 2U
@@ -28,9 +27,8 @@
 
 static inline uint16_t servoAngleToPulseTicks(uint8_t angle) {
   if (angle > 180U) angle = 180U;
-  uint32_t pulseUs = SERVO_DEFAULT_MIN_PULSE_US +
+  const uint32_t pulseUs = SERVO_DEFAULT_MIN_PULSE_US +
     ((uint32_t)(SERVO_DEFAULT_MAX_PULSE_US - SERVO_DEFAULT_MIN_PULSE_US) * angle) / 180UL;
-  pulseUs -= SERVO_DEFAULT_PULSE_TRIM_US;
   return (uint16_t)(pulseUs * SERVO_TIMER_TICKS_PER_US);
 }
 

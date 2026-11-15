@@ -1,8 +1,15 @@
 {
   "version": 1,
-  "author": "Pranav",
   "editor": "wokwi",
+  "author": "Pranav",
   "parts": [
+    {
+      "type": "wokwi-servo",
+      "id": "servo-visual-only",
+      "top": 125,
+      "left": 680,
+      "attrs": {}
+    },
     {
       "type": "wokwi-breadboard-half",
       "id": "bb1",
@@ -17,57 +24,6 @@
       "left": 260,
       "rotate": 45,
       "attrs": {}
-    },
-    {
-      "type": "chip-grove-jhd1804",
-      "id": "lcd",
-      "top": 300,
-      "left": 150,
-      "rotate": 45,
-      "attrs": {}
-    },
-    {
-      "type": "wokwi-servo",
-      "id": "servo-visual-only",
-      "top": 125,
-      "left": 680,
-      "attrs": {}
-    },
-    {
-      "type": "chip-dfplayer-mock",
-      "id": "dfplayer-mock",
-      "top": 405,
-      "left": 680,
-      "rotate": 45,
-      "attrs": {
-        "completionDelayMs": "250"
-      }
-    },
-    {
-      "type": "chip-visual-speaker",
-      "id": "visual-speaker",
-      "top": 405,
-      "left": 820,
-      "rotate": 45,
-      "attrs": {}
-    },
-    {
-      "type": "chip-barrel-jack-breakout",
-      "id": "barrel-jack-breakout",
-      "top": 320,
-      "left": 820,
-      "rotate": 45,
-      "attrs": {}
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "mp3-tx-resistor",
-      "top": 434.6,
-      "left": 326.65,
-      "rotate": 90,
-      "attrs": {
-        "value": "1000"
-      }
     },
     {
       "type": "wokwi-pushbutton-6mm",
@@ -120,13 +76,57 @@
       }
     },
     {
+      "type": "wokwi-resistor",
+      "id": "mp3-tx-resistor",
+      "top": 434.6,
+      "left": 326.65,
+      "rotate": 90,
+      "attrs": {
+        "value": "1000"
+      }
+    },
+    {
+      "type": "chip-dfplayer-mock",
+      "id": "dfplayer-mock",
+      "top": 405,
+      "left": 680,
+      "rotate": 45,
+      "attrs": {
+        "completionDelayMs": "2000"
+      }
+    },
+    {
+      "type": "chip-visual-speaker",
+      "id": "visual-speaker",
+      "top": 405,
+      "left": 820,
+      "rotate": 45,
+      "attrs": {}
+    },
+    {
+      "type": "chip-grove-jhd1804",
+      "id": "lcd",
+      "top": 300,
+      "left": 150,
+      "rotate": 45,
+      "attrs": {}
+    },
+    {
+      "type": "chip-barrel-jack-breakout",
+      "id": "barrel-jack-breakout",
+      "top": 320,
+      "left": 820,
+      "rotate": 45,
+      "attrs": {}
+    },
+    {
       "type": "wokwi-led-strip",
       "id": "neopixel-red",
       "top": 60,
       "left": 647.537,
       "rotate": 225,
       "attrs": {
-        "pixels": "4",
+        "pixels": "6",
         "pixelSize": "2020"
       }
     },
@@ -137,7 +137,7 @@
       "left": 727.537,
       "rotate": 225,
       "attrs": {
-        "pixels": "4",
+        "pixels": "6",
         "pixelSize": "2020"
       }
     },
@@ -148,7 +148,7 @@
       "left": 807.537,
       "rotate": 225,
       "attrs": {
-        "pixels": "4",
+        "pixels": "6",
         "pixelSize": "2020"
       }
     },
@@ -159,172 +159,12 @@
       "left": 887.537,
       "rotate": 225,
       "attrs": {
-        "pixels": "4",
+        "pixels": "6",
         "pixelSize": "2020"
       }
     }
   ],
   "connections": [
-    [
-      "uno:5V",
-      "bb1:tp.1",
-      "#FF0000",
-      []
-    ],
-    [
-      "bb1:tp.2",
-      "lcd:VCC",
-      "#FF0000",
-      []
-    ],
-    [
-      "bb1:tp.3",
-      "dfplayer-mock:VCC",
-      "#FF0000",
-      []
-    ],
-    [
-      "uno:GND.1",
-      "bb1:bn.1",
-      "#000000",
-      []
-    ],
-    [
-      "bb1:bn.29",
-      "lcd:GND",
-      "#000000",
-      []
-    ],
-    [
-      "bb1:bn.30",
-      "dfplayer-mock:GND",
-      "#000000",
-      []
-    ],
-    [
-      "barrel-jack-breakout:5V",
-      "servo-visual-only:V+",
-      "#FF0000",
-      []
-    ],
-    [
-      "barrel-jack-breakout:GND",
-      "servo-visual-only:GND",
-      "#000000",
-      []
-    ],
-    [
-      "barrel-jack-breakout:GND",
-      "uno:GND.1",
-      "#000000",
-      []
-    ],
-    [
-      "uno:A4",
-      "bb1:2t.a",
-      "#00FFFF",
-      []
-    ],
-    [
-      "bb1:2t.b",
-      "lcd:SDA",
-      "#00FFFF",
-      []
-    ],
-    [
-      "uno:A5",
-      "bb1:3t.a",
-      "#FF00FF",
-      []
-    ],
-    [
-      "bb1:3t.b",
-      "lcd:SCL",
-      "#FF00FF",
-      []
-    ],
-    [
-      "dfplayer-mock:TX",
-      "bb1:5t.a",
-      "#800080",
-      []
-    ],
-    [
-      "bb1:5t.b",
-      "uno:10",
-      "#800080",
-      []
-    ],
-    [
-      "uno:9",
-      "bb1:7t.a",
-      "#FFA500",
-      []
-    ],
-    [
-      "bb1:7t.b",
-      "servo-visual-only:PWM",
-      "#FFA500",
-      []
-    ],
-    [
-      "dfplayer-mock:SPK1",
-      "bb1:11t.a",
-      "#A52A2A",
-      []
-    ],
-    [
-      "bb1:11t.b",
-      "visual-speaker:SPK1",
-      "#A52A2A",
-      []
-    ],
-    [
-      "dfplayer-mock:SPK2",
-      "bb1:13t.a",
-      "#D2B48C",
-      []
-    ],
-    [
-      "bb1:13t.b",
-      "visual-speaker:SPK2",
-      "#D2B48C",
-      []
-    ],
-    [
-      "uno:11",
-      "bb1:1t.a",
-      "#808080",
-      []
-    ],
-    [
-      "mp3-tx-resistor:1",
-      "bb1:1t.b",
-      "",
-      [
-        "$bb"
-      ]
-    ],
-    [
-      "mp3-tx-resistor:2",
-      "bb1:1b.f",
-      "",
-      [
-        "$bb"
-      ]
-    ],
-    [
-      "bb1:1b.g",
-      "dfplayer-mock:RX",
-      "#808080",
-      []
-    ],
-    [
-      "uno:6",
-      "bb1:6t.a",
-      "#FF0000",
-      []
-    ],
     [
       "button-red:1.l",
       "bb1:6t.e",
@@ -356,18 +196,6 @@
       [
         "$bb"
       ]
-    ],
-    [
-      "bb1:4b.j",
-      "bb1:10b.j",
-      "#000000",
-      []
-    ],
-    [
-      "uno:7",
-      "bb1:12t.a",
-      "#00FF00",
-      []
     ],
     [
       "button-green:1.l",
@@ -402,12 +230,6 @@
       ]
     ],
     [
-      "uno:8",
-      "bb1:18t.a",
-      "#0000FF",
-      []
-    ],
-    [
       "button-blue:1.l",
       "bb1:18t.e",
       "",
@@ -438,18 +260,6 @@
       [
         "$bb"
       ]
-    ],
-    [
-      "bb1:10b.j",
-      "bb1:16b.j",
-      "#000000",
-      []
-    ],
-    [
-      "uno:A0",
-      "bb1:24t.a",
-      "#FFFF00",
-      []
     ],
     [
       "button-yellow:1.l",
@@ -484,12 +294,6 @@
       ]
     ],
     [
-      "uno:A1",
-      "bb1:30t.a",
-      "#FFFFFF",
-      []
-    ],
-    [
       "button-start:1.l",
       "bb1:30t.e",
       "",
@@ -506,93 +310,277 @@
       ]
     ],
     [
+      "mp3-tx-resistor:1",
+      "bb1:1t.b",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "mp3-tx-resistor:2",
+      "bb1:1b.f",
+      "",
+      [
+        "$bb"
+      ]
+    ],
+    [
+      "uno:6",
+      "bb1:6t.a",
+      "#FF0000",
+      []
+    ],
+    [
+      "uno:7",
+      "bb1:12t.a",
+      "#00FF00",
+      []
+    ],
+    [
+      "uno:8",
+      "bb1:18t.a",
+      "#0000FF",
+      []
+    ],
+    [
+      "uno:9",
+      "bb1:7t.a",
+      "#FFFFFF",
+      []
+    ],
+    [
+      "uno:A0",
+      "bb1:24t.a",
+      "#FFFF00",
+      []
+    ],
+    [
+      "uno:A1",
+      "bb1:30t.a",
+      "#FFFFFF",
+      []
+    ],
+    [
+      "bb1:4b.j",
+      "bb1:10b.j",
+      "#FF0000",
+      []
+    ],
+    [
+      "bb1:10b.i",
+      "bb1:16b.i",
+      "#FFFFFF",
+      []
+    ],
+    [
       "bb1:16b.j",
       "bb1:22b.j",
-      "#000000",
+      "#FFFF00",
       []
     ],
     [
-      "bb1:22b.j",
+      "bb1:22b.i",
+      "bb1:28b.i",
+      "#FFA500",
+      []
+    ],
+    [
       "bb1:28b.j",
-      "#000000",
+      "bb1:bn.25",
+      "#00FF00",
       []
     ],
     [
-      "bb1:28b.j",
-      "bb1:bn.28",
-      "#000000",
+      "uno:GND.1",
+      "bb1:bn.1",
+      "#00FF00",
       []
     ],
     [
-      "barrel-jack-breakout:GND",
-      "neopixel-red:VSS",
-      "#000000",
+      "uno:11",
+      "bb1:1t.a",
+      "#FFFFFF",
       []
     ],
     [
-      "barrel-jack-breakout:5V",
-      "neopixel-red:VDD",
+      "bb1:1b.g",
+      "dfplayer-mock:RX",
+      "#808080",
+      []
+    ],
+    [
+      "dfplayer-mock:TX",
+      "bb1:5t.a",
+      "#006400",
+      []
+    ],
+    [
+      "bb1:5t.b",
+      "uno:10",
+      "#FFA500",
+      []
+    ],
+    [
+      "dfplayer-mock:GND",
+      "bb1:bn.24",
+      "#800080",
+      []
+    ],
+    [
+      "uno:5V",
+      "bb1:tp.1",
       "#FF0000",
       []
     ],
     [
-      "barrel-jack-breakout:GND",
-      "neopixel-green:VSS",
+      "bb1:tp.5",
+      "dfplayer-mock:VCC",
+      "#FFA500",
+      []
+    ],
+    [
+      "dfplayer-mock:SPK1",
+      "visual-speaker:SPK1",
+      "#FFFF00",
+      []
+    ],
+    [
+      "dfplayer-mock:SPK2",
+      "visual-speaker:SPK2",
       "#000000",
       []
     ],
     [
-      "barrel-jack-breakout:5V",
-      "neopixel-green:VDD",
+      "uno:A4",
+      "lcd:SDA",
+      "#A52A2A",
+      []
+    ],
+    [
+      "uno:A5",
+      "lcd:SCL",
+      "#FFFFFF",
+      []
+    ],
+    [
+      "bb1:bn.22",
+      "lcd:GND",
+      "#00008B",
+      []
+    ],
+    [
+      "bb1:tp.22",
+      "lcd:VCC",
       "#FF0000",
+      []
+    ],
+    [
+      "bb1:7t.b",
+      "servo-visual-only:PWM",
+      "#800000",
+      []
+    ],
+    [
+      "uno:GND.2",
+      "bb1:tn.1",
+      "#800080",
+      []
+    ],
+    [
+      "servo-visual-only:GND",
+      "bb1:tn.2",
+      "#FFA500",
       []
     ],
     [
       "barrel-jack-breakout:GND",
-      "neopixel-blue:VSS",
-      "#000000",
+      "bb1:tn.3",
+      "#FFA500",
+      []
+    ],
+    [
+      "servo-visual-only:V+",
+      "bb1:bp.2",
+      "#00FF00",
       []
     ],
     [
       "barrel-jack-breakout:5V",
-      "neopixel-blue:VDD",
-      "#FF0000",
-      []
-    ],
-    [
-      "barrel-jack-breakout:GND",
-      "neopixel-yellow:VSS",
-      "#000000",
-      []
-    ],
-    [
-      "barrel-jack-breakout:5V",
-      "neopixel-yellow:VDD",
-      "#FF0000",
+      "bb1:bp.3",
+      "#A52A2A",
       []
     ],
     [
       "uno:2",
       "neopixel-red:DIN",
-      "#FFFFFF",
+      "#FFFF00",
       []
     ],
     [
       "uno:3",
       "neopixel-green:DIN",
-      "#FFFFFF",
+      "#FFFF00",
       []
     ],
     [
       "uno:4",
       "neopixel-blue:DIN",
+      "#FFFF00",
+      []
+    ],
+    [
+      "uno:12",
+      "neopixel-yellow:DIN",
+      "#FFFF00",
+      []
+    ],
+    [
+      "neopixel-red:VSS",
+      "bb1:tn.14",
+      "#00FF00",
+      []
+    ],
+    [
+      "neopixel-green:VSS",
+      "bb1:tn.10",
       "#FFFFFF",
       []
     ],
     [
-      "uno:5",
-      "neopixel-yellow:DIN",
-      "#FFFFFF",
+      "neopixel-blue:VSS",
+      "bb1:tn.11",
+      "#A52A2A",
+      []
+    ],
+    [
+      "neopixel-yellow:VSS",
+      "bb1:tn.16",
+      "#006400",
+      []
+    ],
+    [
+      "neopixel-red:VDD",
+      "bb1:bp.14",
+      "#FF0000",
+      []
+    ],
+    [
+      "neopixel-green:VDD",
+      "bb1:bp.10",
+      "#FFA500",
+      []
+    ],
+    [
+      "neopixel-blue:VDD",
+      "bb1:bp.11",
+      "#FFA500",
+      []
+    ],
+    [
+      "neopixel-yellow:VDD",
+      "bb1:bp.16",
+      "#FF0000",
       []
     ]
   ],

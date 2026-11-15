@@ -33,13 +33,13 @@ pin_t pin_init(const char *name, uint32_t mode) {
 
 uint32_t attr_init(const char *name, uint32_t default_value) {
   assert(strcmp(name, "completionDelayMs") == 0);
-  assert(default_value == 250);
+  assert(default_value == 2000);
   return 1;
 }
 
 uint32_t attr_read(uint32_t attr) {
   assert(attr == 1);
-  return 250;
+  return 2000;
 }
 
 uart_dev_t uart_init(const uart_config_t *config) {
@@ -189,7 +189,7 @@ static void test_fragmented_play_completion_and_checksum(void) {
   assert(last_track == 1);
   assert(completion_pending);
   assert(fake_timer_pending);
-  assert(scheduled_micros == 250000UL);
+  assert(scheduled_micros == 2000000UL);
 
   transmitted_count = 0;
   fake_timer_pending = false; // the one-shot timer has fired
@@ -234,28 +234,48 @@ static void test_stop_cancels_completion_and_is_idempotent(void) {
   assert(timer_stop_count > stops_after_stop);
 }
 
-static void test_loss_track_five_completes_and_track_six_is_rejected(void) {
+static void test_supported_tracks_complete_and_invalid_tracks_are_rejected(void) {
   uint8_t frame[DFPLAYER_FRAME_SIZE];
-  make_frame(0x12, AUDIO_GAME_OVER_LOSS_TRACK, frame);
-  send_frame(frame);
-  assert(current_track == AUDIO_GAME_OVER_LOSS_TRACK);
-  assert(completion_pending);
-  assert(scheduled_micros == 250000UL);
+  assert(AUDIO_MAX_TRACK == 7U);
 
-  transmitted_count = 0;
-  fake_timer_pending = false;
-  registered_timer.callback(registered_timer.user_data);
-  assert(transmitted_count == DFPLAYER_FRAME_SIZE);
-  assert(valid_frame(transmitted));
-  assert(transmitted[3] == DFPLAYER_EVENT_PLAY_FINISHED);
-  assert(transmitted[6] == AUDIO_GAME_OVER_LOSS_TRACK);
-  assert(last_completed_track == AUDIO_GAME_OVER_LOSS_TRACK);
-  assert(current_track == 0);
-  assert(!completion_pending);
+  for (uint8_t track = AUDIO_FIRST_CUE_TRACK; track <= AUDIO_MAX_TRACK; ++track) {
+    make_frame(0x12, track, frame);
+    send_frame(frame);
+    assert(current_track == track);
+    assert(last_track == track);
+    assert(completion_pending);
+    assert(fake_timer_pending);
+    assert(scheduled_micros == 2000000UL);
 
-  make_frame(0x12, AUDIO_MAX_TRACK + 1U, frame);
+    transmitted_count = 0;
+    fake_timer_pending = false;
+    registered_timer.callback(registered_timer.user_data);
+    assert(transmitted_count == DFPLAYER_FRAME_SIZE);
+    assert(valid_frame(transmitted));
+    assert(transmitted[3] == DFPLAYER_EVENT_PLAY_FINISHED);
+    assert(transmitted[6] == track);
+    assert(last_completed_track == track);
+    assert(current_track == 0);
+    assert(!completion_pending);
+    assert(!fake_timer_pending);
+  }
+
+  // Track 5 remains a supported existing file; 6 and 7 also finish normally.
+  assert(last_completed_track == AUDIO_MAX_TRACK);
+  for (uint16_t invalid_track = 0U; invalid_track <= AUDIO_MAX_TRACK + 1U;
+       invalid_track += AUDIO_MAX_TRACK + 1U) {
+    make_frame(0x12, invalid_track, frame);
+    send_frame(frame);
+    assert(current_track == 0);
+    assert(last_track == AUDIO_MAX_TRACK);
+    assert(!completion_pending);
+    assert(!fake_timer_pending);
+  }
+
+  make_frame(0x12, 0x0101U, frame); // high parameter byte remains invalid
   send_frame(frame);
   assert(current_track == 0);
+  assert(last_track == AUDIO_MAX_TRACK);
   assert(!completion_pending);
 }
 
@@ -272,7 +292,7 @@ int main(void) {
   test_truncated_prefix_recovers_valid_play_frame();
   test_fragmented_play_completion_and_checksum();
   test_stop_cancels_completion_and_is_idempotent();
-  test_loss_track_five_completes_and_track_six_is_rejected();
+  test_supported_tracks_complete_and_invalid_tracks_are_rejected();
   puts("DFPlayer mock protocol tests passed");
   return 0;
 }

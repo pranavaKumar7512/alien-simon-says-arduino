@@ -5,12 +5,12 @@
 #include <stdint.h>
 
 #define PLAYER_LED_SYMBOL_COUNT 4U
-#define PLAYER_LED_PIXELS_PER_SYMBOL 4U
+#define PLAYER_LED_PIXELS_PER_SYMBOL 6U
 #define PLAYER_LED_PIXEL_COUNT (PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL)
-#define PLAYER_LED_BRIGHTNESS 255U
+#define PLAYER_LED_BRIGHTNESS 32U
 
-// Each color group is one independent four-pixel strip, in red/green/blue/yellow order.
-static const uint8_t PLAYER_LED_DATA_PINS[PLAYER_LED_SYMBOL_COUNT] = {2U, 3U, 4U, 5U};
+// Each color group is one independent six-pixel strip, in red/green/blue/yellow order.
+static const uint8_t PLAYER_LED_DATA_PINS[PLAYER_LED_SYMBOL_COUNT] = {2U, 3U, 4U, 12U};
 
 static inline uint8_t playerLedStripForPixel(uint8_t pixel) {
   return pixel < PLAYER_LED_PIXEL_COUNT
@@ -30,12 +30,12 @@ typedef struct {
   uint8_t blue;
 } PlayerLedRgb;
 
-// Color groups: pixels 0-3 red, 4-7 green, 8-11 blue, and 12-15 yellow.
+// Color groups: pixels 0-5 red, 6-11 green, 12-17 blue, and 18-23 yellow.
 static const PlayerLedRgb PLAYER_LED_COLORS[PLAYER_LED_SYMBOL_COUNT] = {
-  {255U, 0U, 0U},   // red, pixels 0-3
-  {0U, 255U, 0U},   // green, pixels 4-7
-  {0U, 0U, 255U},   // blue, pixels 8-11
-  {255U, 255U, 0U}  // yellow, pixels 12-15
+  {255U, 0U, 0U},   // red, pixels 0-5
+  {0U, 255U, 0U},   // green, pixels 6-11
+  {0U, 0U, 255U},   // blue, pixels 12-17
+  {255U, 255U, 0U}  // yellow, pixels 18-23
 };
 
 typedef void (*PlayerLedWritePixel)(uint8_t pixel, uint8_t red,

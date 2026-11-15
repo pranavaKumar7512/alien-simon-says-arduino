@@ -66,18 +66,27 @@ static void assert_mapping_with_color_off(const uint8_t *mapping, uint8_t color_
 }
 
 int main(void) {
-  assert(PLAYER_LED_PIXEL_COUNT == 16U);
   assert(PLAYER_LED_SYMBOL_COUNT == 4U);
-  assert(PLAYER_LED_PIXELS_PER_SYMBOL == 4U);
-  assert(PLAYER_LED_BRIGHTNESS == 255U);
+  assert(PLAYER_LED_PIXELS_PER_SYMBOL == 6U);
+  assert(PLAYER_LED_PIXEL_COUNT == 24U);
+  assert(PLAYER_LED_PIXEL_COUNT == PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL);
+  assert(PLAYER_LED_BRIGHTNESS == 32U);
+  const uint8_t expected_data_pins[PLAYER_LED_SYMBOL_COUNT] = {2U, 3U, 4U, 12U};
   for (uint8_t strip = 0U; strip < PLAYER_LED_SYMBOL_COUNT; ++strip) {
-    assert(PLAYER_LED_DATA_PINS[strip] == (uint8_t)(2U + strip));
+    assert(PLAYER_LED_DATA_PINS[strip] == expected_data_pins[strip]);
   }
   for (uint8_t pixel = 0U; pixel < PLAYER_LED_PIXEL_COUNT; ++pixel) {
     assert(playerLedStripForPixel(pixel) ==
            (uint8_t)(pixel / PLAYER_LED_PIXELS_PER_SYMBOL));
     assert(playerLedPixelWithinStrip(pixel) ==
            (uint8_t)(pixel % PLAYER_LED_PIXELS_PER_SYMBOL));
+  }
+  static const uint8_t groupBoundaries[] = {0U, 5U, 6U, 11U, 12U, 17U, 18U, 23U};
+  static const uint8_t expectedBoundaryStrips[] = {0U, 0U, 1U, 1U, 2U, 2U, 3U, 3U};
+  static const uint8_t expectedBoundaryOffsets[] = {0U, 5U, 0U, 5U, 0U, 5U, 0U, 5U};
+  for (size_t i = 0U; i < sizeof(groupBoundaries) / sizeof(groupBoundaries[0]); ++i) {
+    assert(playerLedStripForPixel(groupBoundaries[i]) == expectedBoundaryStrips[i]);
+    assert(playerLedPixelWithinStrip(groupBoundaries[i]) == expectedBoundaryOffsets[i]);
   }
   assert(playerLedStripForPixel(PLAYER_LED_PIXEL_COUNT) == PLAYER_LED_SYMBOL_COUNT);
   assert(playerLedPixelWithinStrip(PLAYER_LED_PIXEL_COUNT) == PLAYER_LED_PIXELS_PER_SYMBOL);
@@ -167,7 +176,7 @@ int main(void) {
   assert(!playerLedSetAllMappedColors(0));
   assert(write_count == 0U);
 
-  puts("sixteen-pixel four-strip NeoPixel group tests passed");
+  puts("24-pixel four-strip NeoPixel group tests passed");
   return 0;
 }
 

@@ -66,8 +66,8 @@ def button_remap_transcript(plan):
         if round_number == 3:
             lines.extend((
                 f"SIM_BUTTON_MAP:4:{encode(maps[4])}",
-                "SIM_AUDIO_START:1",
-                "SIM_AUDIO_DONE:1",
+                f"SIM_AUDIO_START:{RUNNER.ROUND_CELEBRATION_TRACK}",
+                f"SIM_AUDIO_DONE:{RUNNER.ROUND_CELEBRATION_TRACK}",
                 f"SIM_BUTTON_DEMO_START:4:{clock}",
                 f"SIM_BUTTON_DEMO_MAP:4:{encode(maps[4])}",
                 f"SIM_BUTTON_DEMO_END:4:{clock + 5500}",
@@ -95,6 +95,49 @@ class WokwiTestRunnerTests(unittest.TestCase):
         )
         self.assertEqual(RUNNER.next_game_seed(1), 270369)
         self.assertEqual(first.symbols[:8], (2, 2, 3, 3, 1, 1, 3, 1))
+
+    def test_audio_event_tracks_and_fixed_celebration_preserve_sequence_rng(self):
+        project = RUNNER.ROOT
+        headers = [
+            project / "audio_track_config.h",
+            project / "alien-simon-says" / "audio_track_config.h",
+            RUNNER.ROOT.parent / "alien-simon-says-build" / "alien-simon-says" / "audio_track_config.h",
+        ]
+        header_text = [path.read_text(encoding="utf-8") for path in headers]
+        self.assertTrue(all(text == header_text[0] for text in header_text[1:]))
+        expected_tracks = {
+            "AUDIO_FIRST_CUE_TRACK": 1,
+            "AUDIO_LAST_CUE_TRACK": 4,
+            "AUDIO_ROUND_CELEBRATION_TRACK": RUNNER.ROUND_CELEBRATION_TRACK,
+            "AUDIO_GAME_OVER_LOSS_TRACK": RUNNER.GAME_OVER_LOSS_TRACK,
+            "AUDIO_MAX_TRACK": RUNNER.GAME_OVER_LOSS_TRACK,
+        }
+        for name, expected in expected_tracks.items():
+            if name == "AUDIO_MAX_TRACK":
+                self.assertIn(
+                    "#define AUDIO_MAX_TRACK AUDIO_GAME_OVER_LOSS_TRACK",
+                    header_text[0],
+                )
+                self.assertEqual(expected, expected_tracks["AUDIO_GAME_OVER_LOSS_TRACK"])
+                continue
+            match = re.search(rf"#define {name} (\d+)U", header_text[0])
+            self.assertIsNotNone(match, name)
+            self.assertEqual(int(match.group(1)), expected)
+
+        sketch = (project / "alien-simon-says" / "alien-simon-says.ino").read_text(encoding="utf-8")
+        celebration = re.search(
+            r"if \(completedRounds % 3UL == 0\) \{(.*?)\n  \}", sketch, re.DOTALL
+        )
+        self.assertIsNotNone(celebration)
+        self.assertIn("startTrack(AUDIO_ROUND_CELEBRATION_TRACK);", celebration.group(1))
+        self.assertNotIn("nextAudioSymbol", celebration.group(1))
+        self.assertIn("celebrationWaitingForAudio = true;", celebration.group(1))
+        self.assertIn("gameState = CELEBRATION;", celebration.group(1))
+        self.assertIn(
+            "nextAudioSymbol(randomTrackState) % AUDIO_LAST_CUE_TRACK + 1U",
+            sketch,
+        )
+        self.assertIn("gameOverAudioTrack(playerLost, randomTrack)", sketch)
 
     def test_sampling_with_replacement_allows_repeats(self):
         plan = RUNNER.game_plan(1, None, 8)
@@ -152,6 +195,13 @@ class WokwiTestRunnerTests(unittest.TestCase):
         plans = RUNNER.make_game_plans("button-remap", 0x12345678, None)
         serial = button_remap_transcript(plans[0])
         RUNNER.validate_transcript("button-remap", plans, 2300, serial)
+        wrong_celebration_track = serial.replace(
+            f"SIM_AUDIO_START:{RUNNER.ROUND_CELEBRATION_TRACK}", "SIM_AUDIO_START:5", 1
+        ).replace(
+            f"SIM_AUDIO_DONE:{RUNNER.ROUND_CELEBRATION_TRACK}", "SIM_AUDIO_DONE:5", 1
+        )
+        with self.assertRaisesRegex(RuntimeError, "celebration must play and finish"):
+            RUNNER.validate_transcript("button-remap", plans, 2300, wrong_celebration_track)
 
         reordered = serial.splitlines()
         ready_index = next(i for i, line in enumerate(reordered)
@@ -352,10 +402,10 @@ class WokwiTestRunnerTests(unittest.TestCase):
             f"SIM_CUE_GAP_DONE:1:{cue_gap}",
             f"SIM_INPUT_READY:{ready}",
             "WRONG_ANSWER",
-            "SIM_AUDIO_START:5",
+            "SIM_AUDIO_START:7",
             f"SIM_GAME_OVER_START:{game_over_start}",
             f"SIM_SERVO_EXTEND:{servo_extend}",
-            "SIM_GAMEOVER_EVENT_DRAINED:5",
+            "SIM_GAMEOVER_EVENT_DRAINED:7",
             f"SIM_SERVO_RETRACT:{servo_retract}",
             f"SIM_SERVO_RETRACT_DONE:{retract_done}",
             f"SIM_GAME_OVER_STOP:{game_over_stop}",
@@ -604,7 +654,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
         lines.extend((
             "SIM_INPUT_READY:9300",
             "WRONG_ANSWER",
-            "SIM_AUDIO_START:5",
+            "SIM_AUDIO_START:7",
             f"SIM_GAME_OVER_START:{game_over_start}",
             f"SIM_SERVO_EXTEND:{servo_extend}",
             "SIM_GAME_RESET_QUEUED",
@@ -702,7 +752,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
         retract_done = servo_retract + RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS
         lines.extend((
             "WRONG_ANSWER",
-            "SIM_AUDIO_START:5",
+            "SIM_AUDIO_START:7",
             f"SIM_GAME_OVER_START:{game_over_start}",
             f"SIM_SERVO_EXTEND:{servo_extend}",
             f"SIM_SERVO_RETRACT:{servo_retract}",
@@ -728,7 +778,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
     def test_gameover_transcript_checks_completion_and_transition_durations(self):
         plans = RUNNER.make_game_plans("gameover-stale-event", 0x12345678, None)
         first, second = plans
-        game_over_track = 5  # AUDIO_GAME_OVER_LOSS_TRACK in audio_track_config.h.
+        game_over_track = RUNNER.GAME_OVER_LOSS_TRACK  # audio_track_config.h
         game_over_start = 2400
         servo_extend = game_over_start + 1
         servo_retract = servo_extend + RUNNER.SERVO_GAME_OVER_HOLD_MS
@@ -763,7 +813,11 @@ class WokwiTestRunnerTests(unittest.TestCase):
             f"SIM_CUE_GAP_DONE:{second.first}:{second_cue_on + 2180}",
             f"SIM_INPUT_READY:{second_cue_on + 2200}",
         ]
-        RUNNER.validate_transcript("gameover-stale-event", plans, 2300, "\n".join(lines))
+        serial = "\n".join(lines)
+        RUNNER.validate_transcript("gameover-stale-event", plans, 2300, serial)
+        wrong_loss_track = serial.replace("SIM_AUDIO_START:7", "SIM_AUDIO_START:5", 1)
+        with self.assertRaisesRegex(RuntimeError, "dedicated track"):
+            RUNNER.validate_transcript("gameover-stale-event", plans, 2300, wrong_loss_track)
 
         extension_before_start = lines.copy()
         extension_index = next(i for i, line in enumerate(extension_before_start)

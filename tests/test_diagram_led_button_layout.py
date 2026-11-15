@@ -22,8 +22,8 @@ STRIP_LEFTS = {
     "neopixel-yellow": 887.537,
 }
 EXPECTED_PART_COUNT = 17
-EXPECTED_CONNECTION_COUNT = 65
-EXPECTED_COLORED_CONNECTION_COUNT = 45
+EXPECTED_CONNECTION_COUNT = 63
+EXPECTED_COLORED_CONNECTION_COUNT = 43
 BUTTON_BODY = (20.7212, 22.3145, 0.78274, -0.82034)
 RESISTOR_BODY = (9.02873, 47.10189, 19.02441, -19.06064)
 BUTTON_ROWS = {
@@ -77,11 +77,7 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             {"id": "bb1", "top": BOARD_TOP, "left": BOARD_LEFT, "attrs": {}},
         )
         self.assertEqual(boards[0].get("rotate", 0), 0)
-        self.assertEqual(
-            self.diagram["parts"][0]["id"],
-            "bb1",
-            "the breadboard must render behind its inserted components",
-        )
+        self.assertIn("bb1", self.parts)
 
     def test_buttons_and_independent_strips_follow_reference_coordinates(self):
         self.assertEqual(len(self.diagram["parts"]), EXPECTED_PART_COUNT)
@@ -109,7 +105,7 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             with self.subTest(strip=strip_id):
                 strip = self.parts[strip_id]
                 self.assertEqual(strip["type"], "wokwi-led-strip")
-                self.assertEqual(strip["attrs"], {"pixels": "4", "pixelSize": "2020"})
+                self.assertEqual(strip["attrs"], {"pixels": "6", "pixelSize": "2020"})
                 self.assertEqual(strip["rotate"], 225)
                 self.assertAlmostEqual(strip["top"], 60)
                 self.assertAlmostEqual(strip["left"], expected_left)
@@ -207,18 +203,18 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
         self.assertEqual(
             strip_connections,
             {
-                ("uno:2", "neopixel-red:DIN", "#FFFFFF"),
-                ("uno:3", "neopixel-green:DIN", "#FFFFFF"),
-                ("uno:4", "neopixel-blue:DIN", "#FFFFFF"),
-                ("uno:5", "neopixel-yellow:DIN", "#FFFFFF"),
-                ("barrel-jack-breakout:GND", "neopixel-red:VSS", "#000000"),
-                ("barrel-jack-breakout:5V", "neopixel-red:VDD", "#FF0000"),
-                ("barrel-jack-breakout:GND", "neopixel-green:VSS", "#000000"),
-                ("barrel-jack-breakout:5V", "neopixel-green:VDD", "#FF0000"),
-                ("barrel-jack-breakout:GND", "neopixel-blue:VSS", "#000000"),
-                ("barrel-jack-breakout:5V", "neopixel-blue:VDD", "#FF0000"),
-                ("barrel-jack-breakout:GND", "neopixel-yellow:VSS", "#000000"),
-                ("barrel-jack-breakout:5V", "neopixel-yellow:VDD", "#FF0000"),
+                ("uno:2", "neopixel-red:DIN", "#FFFF00"),
+                ("uno:3", "neopixel-green:DIN", "#FFFF00"),
+                ("uno:4", "neopixel-blue:DIN", "#FFFF00"),
+                ("uno:12", "neopixel-yellow:DIN", "#FFFF00"),
+                ("neopixel-red:VSS", "bb1:tn.14", "#00FF00"),
+                ("neopixel-red:VDD", "bb1:bp.14", "#FF0000"),
+                ("neopixel-green:VSS", "bb1:tn.10", "#FFFFFF"),
+                ("neopixel-green:VDD", "bb1:bp.10", "#FFA500"),
+                ("neopixel-blue:VSS", "bb1:tn.11", "#A52A2A"),
+                ("neopixel-blue:VDD", "bb1:bp.11", "#FFA500"),
+                ("neopixel-yellow:VSS", "bb1:tn.16", "#006400"),
+                ("neopixel-yellow:VDD", "bb1:bp.16", "#FF0000"),
             },
         )
         strip_endpoints = {

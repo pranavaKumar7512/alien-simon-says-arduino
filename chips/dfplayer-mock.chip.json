@@ -8,7 +8,7 @@
       "label": "Mock completion delay (ms)",
       "type": "range",
       "min": 50,
-      "max": 1500,
+      "max": 3000,
       "step": 50
     }
   ]

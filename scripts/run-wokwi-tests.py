@@ -25,6 +25,8 @@ BUTTONS = BUTTON_PARTS_BY_POSITION
 BUTTON_MAPPING_SEED_SALT = 0xB5297A4D
 BUTTON_MAPPING_FALLBACK_SEED = 0x68E31DA4
 BUTTON_MAPPING_DEMO_MS = 5500
+ROUND_CELEBRATION_TRACK = 6
+GAME_OVER_LOSS_TRACK = 7
 GAME_OVER_MIN_MS = 3000
 SERVO_GAME_OVER_HOLD_MS = 3000
 SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS = 3000
@@ -726,6 +728,8 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
             raise RuntimeError("Game Over audio start must be present before its state marker")
         game_over_track = int(re.match(r"SIM_AUDIO_START:(\d+)", lines[prior_audio_starts[-1]]).group(1))
         drained_track = int(re.match(r"SIM_GAMEOVER_EVENT_DRAINED:(\d+)", lines[drained_lines[0]]).group(1))
+        if game_over_track != GAME_OVER_LOSS_TRACK:
+            raise RuntimeError("player-loss Game Over must play its dedicated track")
         if drained_track != game_over_track:
             raise RuntimeError("Game Over must drain its own completion event")
         game_over_region = lines[game_over_start[0] + 1:game_over_stop[0]]
@@ -797,6 +801,12 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                 game_over[0] < extensions[0] < queued[0] < retract[0] < retract_done[0] <
                 game_over_stop[0] < reset_lines[1] < game_starts[2] < ready_lines[3]):
             raise RuntimeError("Start must reset after a completed round and defer a queued reset until the wrong-answer loss and servo return finish")
+        loss_audio_starts = [
+            int(match.group(1)) for line in lines[:game_over[0]]
+            if (match := re.fullmatch(r"SIM_AUDIO_START:(\d+)", line)) is not None
+        ]
+        if not loss_audio_starts or loss_audio_starts[-1] != GAME_OVER_LOSS_TRACK:
+            raise RuntimeError("player-loss Game Over must play its dedicated track")
 
         score_states = []
         for index, line in enumerate(lines):
@@ -838,6 +848,12 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                 rounds[-1] < ready_lines[3] < wrong_answers[0] < game_over[0] <
                 extensions[0] < retract[0] < retract_done[0] < game_over_stop[0]):
             raise RuntimeError("servo must stay still for three successful rounds and return only after a wrong answer")
+        loss_audio_starts = [
+            int(match.group(1)) for line in lines[:game_over[0]]
+            if (match := re.fullmatch(r"SIM_AUDIO_START:(\d+)", line)) is not None
+        ]
+        if not loss_audio_starts or loss_audio_starts[-1] != GAME_OVER_LOSS_TRACK:
+            raise RuntimeError("player-loss Game Over must play its dedicated track")
 
     if name == "button-remap":
         plan = plans[0]
@@ -1050,6 +1066,21 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                             if line.strip() == "SIM_GAME_START"]
         audio_done_lines = [i for i, line in enumerate(lines)
                             if re.match(r"SIM_AUDIO_DONE:\d+", line)]
+        celebration_audio_starts = [
+            (index, int(match.group(1))) for index, line in enumerate(lines)
+            if round_completions[2] < index < demo_start_lines[1]
+            if (match := re.fullmatch(r"SIM_AUDIO_START:(\d+)", line)) is not None
+        ]
+        celebration_audio_done = [
+            index for index, line in enumerate(lines)
+            if round_completions[2] < index < demo_start_lines[1]
+            and line == f"SIM_AUDIO_DONE:{ROUND_CELEBRATION_TRACK}"
+        ]
+        if not (len(celebration_audio_starts) == 1 and
+                celebration_audio_starts[0][1] == ROUND_CELEBRATION_TRACK and
+                len(celebration_audio_done) == 1 and
+                celebration_audio_starts[0][0] < celebration_audio_done[0]):
+            raise RuntimeError("completed-round celebration must play and finish on its dedicated track")
         demo_order_checks = (
             len(game_start_lines) == 1 and
             game_start_lines[0] < map_lines[0] < demo_start_lines[0] <

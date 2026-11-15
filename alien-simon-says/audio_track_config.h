@@ -6,7 +6,8 @@
 
 #define AUDIO_FIRST_CUE_TRACK 1U
 #define AUDIO_LAST_CUE_TRACK 4U
-#define AUDIO_GAME_OVER_LOSS_TRACK 5U
+#define AUDIO_ROUND_CELEBRATION_TRACK 6U
+#define AUDIO_GAME_OVER_LOSS_TRACK 7U
 #define AUDIO_MAX_TRACK AUDIO_GAME_OVER_LOSS_TRACK
 
 static inline uint8_t gameOverAudioTrack(bool playerLost, uint8_t randomTrack) {
