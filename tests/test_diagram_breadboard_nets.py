@@ -10,11 +10,11 @@ from collections import defaultdict, deque
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUTTONS = {
-    "button-red": ("6", 6, 4, "bn.3", "black"),
-    "button-green": ("7", 12, 10, "bn.4", "black"),
-    "button-blue": ("8", 18, 16, "bn.5", "black"),
-    "button-yellow": ("A0", 24, 22, "bn.6", "black"),
-    "button-start": ("A1", 30, 28, "bn.7", "gray"),
+    "button-red": ("6", 6, 4, "bn.28", "black"),
+    "button-green": ("7", 12, 10, "bn.28", "black"),
+    "button-blue": ("8", 18, 16, "bn.28", "black"),
+    "button-yellow": ("A0", 24, 22, "bn.28", "black"),
+    "button-start": ("A1", 30, 28, "bn.28", "gray"),
 }
 GROUND_BUS_ROWS = (4, 10, 16, 22, 28)
 
@@ -29,16 +29,17 @@ WIRE_COLORS = {
     ("uno:GND.1", "bb1:bn.1"): "#000000",
     ("bb1:bn.29", "lcd:GND"): "#000000",
     ("bb1:bn.30", "dfplayer-mock:GND"): "#000000",
-    ("bb2:tp.30", "barrel-jack-breakout:VCC"): "#008B8B",
-    ("bb2:bn.30", "barrel-jack-breakout:GND"): "#000000",
-    ("bb1:bn.2", "bb2:bn.2"): "#000000",
+    ("barrel-jack-breakout:5V", "servo-visual-only:V+"): "#FF0000",
+    ("barrel-jack-breakout:GND", "servo-visual-only:GND"): "#000000",
+    ("barrel-jack-breakout:GND", "uno:GND.1"): "#000000",
     ("uno:A4", "bb1:2t.a"): "#00FFFF",
     ("bb1:2t.b", "lcd:SDA"): "#00FFFF",
     ("uno:A5", "bb1:3t.a"): "#FF00FF",
     ("bb1:3t.b", "lcd:SCL"): "#FF00FF",
     ("dfplayer-mock:TX", "bb1:5t.a"): "#800080",
     ("bb1:5t.b", "uno:10"): "#800080",
-    ("uno:9", "servo-visual-only:PWM"): "#FFA500",
+    ("uno:9", "bb1:7t.a"): "#FFA500",
+    ("bb1:7t.b", "servo-visual-only:PWM"): "#FFA500",
     ("dfplayer-mock:SPK1", "bb1:11t.a"): "#A52A2A",
     ("bb1:11t.b", "visual-speaker:SPK1"): "#A52A2A",
     ("dfplayer-mock:SPK2", "bb1:13t.a"): "#D2B48C",
@@ -49,26 +50,24 @@ WIRE_COLORS = {
     ("uno:3", "neopixel-green:DIN"): "#FFFFFF",
     ("uno:4", "neopixel-blue:DIN"): "#FFFFFF",
     ("uno:5", "neopixel-yellow:DIN"): "#FFFFFF",
-    ("bb2:tp.25", "neopixel-red:VDD"): "#FF0000",
-    ("bb2:bn.25", "neopixel-red:VSS"): "#000000",
-    ("bb2:tp.27", "neopixel-green:VDD"): "#FF0000",
-    ("bb2:bn.27", "neopixel-green:VSS"): "#000000",
-    ("bb2:tp.28", "neopixel-blue:VDD"): "#FF0000",
-    ("bb2:bn.28", "neopixel-blue:VSS"): "#000000",
-    ("bb2:tp.29", "neopixel-yellow:VDD"): "#FF0000",
-    ("bb2:bn.29", "neopixel-yellow:VSS"): "#000000",
-    ("bb2:tp.26", "servo-visual-only:V+"): "#FF0000",
-    ("bb2:bn.26", "servo-visual-only:GND"): "#000000",
+    ("barrel-jack-breakout:GND", "neopixel-red:VSS"): "#000000",
+    ("barrel-jack-breakout:5V", "neopixel-red:VDD"): "#FF0000",
+    ("barrel-jack-breakout:GND", "neopixel-green:VSS"): "#000000",
+    ("barrel-jack-breakout:5V", "neopixel-green:VDD"): "#FF0000",
+    ("barrel-jack-breakout:GND", "neopixel-blue:VSS"): "#000000",
+    ("barrel-jack-breakout:5V", "neopixel-blue:VDD"): "#FF0000",
+    ("barrel-jack-breakout:GND", "neopixel-yellow:VSS"): "#000000",
+    ("barrel-jack-breakout:5V", "neopixel-yellow:VDD"): "#FF0000",
     ("uno:6", "bb1:6t.a"): "#FF0000",
-    ("bb1:4b.j", "bb1:bn.3"): "#000000",
+    ("bb1:4b.j", "bb1:10b.j"): "#000000",
     ("uno:7", "bb1:12t.a"): "#00FF00",
     ("uno:8", "bb1:18t.a"): "#0000FF",
-    ("bb1:10b.j", "bb1:bn.4"): "#000000",
+    ("bb1:10b.j", "bb1:16b.j"): "#000000",
     ("uno:A0", "bb1:24t.a"): "#FFFF00",
     ("uno:A1", "bb1:30t.a"): "#FFFFFF",
-    ("bb1:16b.j", "bb1:bn.5"): "#000000",
-    ("bb1:22b.j", "bb1:bn.6"): "#000000",
-    ("bb1:28b.j", "bb1:bn.7"): "#000000",
+    ("bb1:16b.j", "bb1:22b.j"): "#000000",
+    ("bb1:22b.j", "bb1:28b.j"): "#000000",
+    ("bb1:28b.j", "bb1:bn.28"): "#000000",
 }
 
 
@@ -82,28 +81,20 @@ STRIP_DATA_LINKS = (
     ("uno:4", "neopixel-blue:DIN"),
     ("uno:5", "neopixel-yellow:DIN"),
 )
-SERVO_PWM_ROUTE = ("uno:9", "servo-visual-only:PWM")
-
-STRIP_POWER_LINKS = (
-    ("bb2:tp.25", "neopixel-red:VDD"),
-    ("bb2:bn.25", "neopixel-red:VSS"),
-    ("bb2:tp.26", "servo-visual-only:V+"),
-    ("bb2:bn.26", "servo-visual-only:GND"),
-    ("bb2:tp.27", "neopixel-green:VDD"),
-    ("bb2:bn.27", "neopixel-green:VSS"),
-    ("bb2:tp.28", "neopixel-blue:VDD"),
-    ("bb2:bn.28", "neopixel-blue:VSS"),
-    ("bb2:tp.29", "neopixel-yellow:VDD"),
-    ("bb2:bn.29", "neopixel-yellow:VSS"),
-)
 EXPECTED_STRIP_CONNECTIONS = {
-    visible_connection(source, destination)
-    for source, destination in STRIP_DATA_LINKS
+    visible_connection(left, right) for left, right in STRIP_DATA_LINKS
 }
 EXPECTED_STRIP_CONNECTIONS.update(
-    visible_connection(left, right)
-    for left, right in STRIP_POWER_LINKS
-    if right.startswith("neopixel-")
+    {
+        visible_connection("barrel-jack-breakout:GND", "neopixel-red:VSS"),
+        visible_connection("barrel-jack-breakout:5V", "neopixel-red:VDD"),
+        visible_connection("barrel-jack-breakout:GND", "neopixel-green:VSS"),
+        visible_connection("barrel-jack-breakout:5V", "neopixel-green:VDD"),
+        visible_connection("barrel-jack-breakout:GND", "neopixel-blue:VSS"),
+        visible_connection("barrel-jack-breakout:5V", "neopixel-blue:VDD"),
+        visible_connection("barrel-jack-breakout:GND", "neopixel-yellow:VSS"),
+        visible_connection("barrel-jack-breakout:5V", "neopixel-yellow:VDD"),
+    }
 )
 
 
@@ -114,16 +105,17 @@ EXPECTED_CONNECTIONS = {
     visible_connection("uno:GND.1", "bb1:bn.1"),
     visible_connection("bb1:bn.29", "lcd:GND"),
     visible_connection("bb1:bn.30", "dfplayer-mock:GND"),
-    visible_connection("bb2:tp.30", "barrel-jack-breakout:VCC"),
-    visible_connection("bb2:bn.30", "barrel-jack-breakout:GND"),
-    visible_connection("bb1:bn.2", "bb2:bn.2"),
+    visible_connection("barrel-jack-breakout:5V", "servo-visual-only:V+"),
+    visible_connection("barrel-jack-breakout:GND", "servo-visual-only:GND"),
+    visible_connection("barrel-jack-breakout:GND", "uno:GND.1"),
     visible_connection("uno:A4", "bb1:2t.a"),
     visible_connection("bb1:2t.b", "lcd:SDA"),
     visible_connection("uno:A5", "bb1:3t.a"),
     visible_connection("bb1:3t.b", "lcd:SCL"),
     visible_connection("dfplayer-mock:TX", "bb1:5t.a"),
     visible_connection("bb1:5t.b", "uno:10"),
-    visible_connection("uno:9", "servo-visual-only:PWM"),
+    visible_connection("uno:9", "bb1:7t.a"),
+    visible_connection("bb1:7t.b", "servo-visual-only:PWM"),
     visible_connection("dfplayer-mock:SPK1", "bb1:11t.a"),
     visible_connection("bb1:11t.b", "visual-speaker:SPK1"),
     visible_connection("dfplayer-mock:SPK2", "bb1:13t.a"),
@@ -136,15 +128,21 @@ EXPECTED_CONNECTIONS = {
     visible_connection("uno:3", "neopixel-green:DIN"),
     visible_connection("uno:4", "neopixel-blue:DIN"),
     visible_connection("uno:5", "neopixel-yellow:DIN"),
+    visible_connection("barrel-jack-breakout:GND", "neopixel-red:VSS"),
+    visible_connection("barrel-jack-breakout:5V", "neopixel-red:VDD"),
+    visible_connection("barrel-jack-breakout:GND", "neopixel-green:VSS"),
+    visible_connection("barrel-jack-breakout:5V", "neopixel-green:VDD"),
+    visible_connection("barrel-jack-breakout:GND", "neopixel-blue:VSS"),
+    visible_connection("barrel-jack-breakout:5V", "neopixel-blue:VDD"),
+    visible_connection("barrel-jack-breakout:GND", "neopixel-yellow:VSS"),
+    visible_connection("barrel-jack-breakout:5V", "neopixel-yellow:VDD"),
 }
-EXPECTED_CONNECTIONS.update(
-    visible_connection(left, right) for left, right in STRIP_POWER_LINKS
-)
 
-for row, rail_index in zip(GROUND_BUS_ROWS, range(3, 8)):
+for left_row, right_row in zip(GROUND_BUS_ROWS, GROUND_BUS_ROWS[1:]):
     EXPECTED_CONNECTIONS.add(
-        visible_connection(f"bb1:{row}b.j", f"bb1:bn.{rail_index}")
+        visible_connection(f"bb1:{left_row}b.j", f"bb1:{right_row}b.j")
     )
+EXPECTED_CONNECTIONS.add(visible_connection("bb1:28b.j", "bb1:bn.28"))
 
 for button_id, (gpio, contact1, contact2, _ground_rail, _color) in BUTTONS.items():
     EXPECTED_CONNECTIONS.add(
@@ -174,15 +172,14 @@ def wire_graph(connections):
     tiepoint_groups = defaultdict(list)
     rail_groups = defaultdict(list)
     for endpoint in graph:
-        tiepoint = re.fullmatch(r"bb(\d+):(\d+)([tb])\.([a-j])", endpoint)
-        rail = re.fullmatch(r"bb(\d+):([tb])([pn])\.(\d+)", endpoint)
+        tiepoint = re.fullmatch(r"bb1:(\d+)([tb])\.([a-j])", endpoint)
+        rail = re.fullmatch(r"bb1:([tb])([pn])\.(\d+)", endpoint)
         if tiepoint:
-            board, number, section, hole = tiepoint.groups()
+            number, section, hole = tiepoint.groups()
             if (section == "t" and hole in "abcde") or (section == "b" and hole in "fghij"):
-                tiepoint_groups[(board, number, section)].append(endpoint)
+                tiepoint_groups[(number, section)].append(endpoint)
         elif rail:
-            board, section, polarity, _number = rail.groups()
-            rail_groups[(board, section, polarity)].append(endpoint)
+            rail_groups[rail.groups()[:2]].append(endpoint)
     for endpoints in (*tiepoint_groups.values(), *rail_groups.values()):
         for endpoint in endpoints[1:]:
             graph[endpoints[0]].add(endpoint)
@@ -233,8 +230,8 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         cls.graph = wire_graph(cls.connections)
 
     def test_exact_netlist_and_only_expected_component_bypasses(self):
-        self.assertEqual(len(self.connection_tuples), 66)
-        self.assertEqual(sum(bool(item[2]) for item in self.connection_tuples), 46)
+        self.assertEqual(len(self.connection_tuples), 65)
+        self.assertEqual(sum(bool(item[2]) for item in self.connection_tuples), 45)
         self.assertEqual(sum(item[3] == ("$bb",) for item in self.connection_tuples), 20)
         self.assertEqual(len(self.connection_tuples), len(set(self.connection_tuples)))
         self.assertEqual(set(self.connection_tuples), EXPECTED_CONNECTIONS)
@@ -245,40 +242,72 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
             },
             EXPECTED_STRIP_CONNECTIONS,
         )
+        self.assertEqual(EXPECTED_STRIP_CONNECTIONS, {
+            visible_connection("uno:2", "neopixel-red:DIN"),
+            visible_connection("uno:3", "neopixel-green:DIN"),
+            visible_connection("uno:4", "neopixel-blue:DIN"),
+            visible_connection("uno:5", "neopixel-yellow:DIN"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-red:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-red:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-green:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-green:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-blue:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-blue:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-yellow:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-yellow:VDD"),
+        })
         self.assertEqual(len(EXPECTED_STRIP_CONNECTIONS), 12)
-        for source, destination in (*STRIP_DATA_LINKS, SERVO_PWM_ROUTE):
-            with self.subTest(data_link=(source, destination)):
-                self.assertIn(visible_connection(source, destination), self.connection_tuples)
-        for left, right in STRIP_POWER_LINKS:
-            with self.subTest(power_link=(left, right)):
+        for left, right in STRIP_DATA_LINKS:
+            with self.subTest(data_link=(left, right)):
                 self.assertIn(visible_connection(left, right), self.connection_tuples)
         direct_component_wires = {
-            *(visible_connection(source, destination) for source, destination in STRIP_DATA_LINKS),
-            visible_connection(*SERVO_PWM_ROUTE),
-            visible_connection("bb2:tp.30", "barrel-jack-breakout:VCC"),
-            visible_connection("bb2:bn.30", "barrel-jack-breakout:GND"),
-            visible_connection("bb1:bn.2", "bb2:bn.2"),
+            visible_connection("barrel-jack-breakout:5V", "servo-visual-only:V+"),
+            visible_connection("barrel-jack-breakout:GND", "servo-visual-only:GND"),
+            visible_connection("barrel-jack-breakout:GND", "uno:GND.1"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-red:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-red:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-green:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-green:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-blue:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-blue:VDD"),
+            visible_connection("barrel-jack-breakout:GND", "neopixel-yellow:VSS"),
+            visible_connection("barrel-jack-breakout:5V", "neopixel-yellow:VDD"),
+            visible_connection("uno:2", "neopixel-red:DIN"),
+            visible_connection("uno:3", "neopixel-green:DIN"),
+            visible_connection("uno:4", "neopixel-blue:DIN"),
+            visible_connection("uno:5", "neopixel-yellow:DIN"),
         }
         for left, right, color, _attrs in self.connection_tuples:
-            board_mediated = left.startswith(("bb1:", "bb2:")) or right.startswith(("bb1:", "bb2:"))
+            board_mediated = left.startswith("bb1:") or right.startswith("bb1:")
             self.assertTrue(
                 board_mediated or connection(left, right, color) in direct_component_wires,
                 f"unexpected component-to-component bypass: {left} -> {right}",
             )
+        direct_uno_component_wires = {
+            item for item in self.connection_tuples
+            if (item[0].startswith("uno:") and not item[1].startswith("bb1:"))
+            or (item[1].startswith("uno:") and not item[0].startswith("bb1:"))
+        }
+        self.assertEqual(
+            direct_uno_component_wires,
+            {
+                visible_connection("barrel-jack-breakout:GND", "uno:GND.1"),
+                visible_connection("uno:2", "neopixel-red:DIN"),
+                visible_connection("uno:3", "neopixel-green:DIN"),
+                visible_connection("uno:4", "neopixel-blue:DIN"),
+                visible_connection("uno:5", "neopixel-yellow:DIN"),
+            },
+        )
         self.assertTrue(all(isinstance(item[3], list) for item in self.connections))
         self.assertFalse(any(item[3] == "$bb" for item in self.connections))
-        endpoint_counts = defaultdict(int)
-        for left, right, _color, _attrs in self.connection_tuples:
-            endpoint_counts[left] += 1
-            endpoint_counts[right] += 1
-        for endpoint, count in endpoint_counts.items():
-            if endpoint.startswith(("bb1:", "bb2:")):
-                self.assertLessEqual(count, 1, f"breadboard hole/rail {endpoint} has multiple wires")
-            elif endpoint.split(":", 1)[0] in self.parts:
-                self.assertLessEqual(count, 1, f"component pin {endpoint} has multiple wires")
+        self.assertFalse(
+            any(":DOUT" in endpoint or endpoint.endswith(("VDD.2", "VSS.2"))
+                for item in self.connection_tuples for endpoint in item[:2]),
+            "strip DOUT and secondary power pins must remain unconnected",
+        )
 
     def test_visible_wire_colors_follow_electrical_function(self):
-        self.assertEqual(len(WIRE_COLORS), 46)
+        self.assertEqual(len(WIRE_COLORS), 45)
         visible = {
             (left, right): color
             for left, right, color, _attrs in self.connection_tuples
@@ -295,30 +324,28 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
             ("uno:5V", "bb1:tp.1"),
             ("bb1:tp.2", "lcd:VCC"),
             ("bb1:tp.3", "dfplayer-mock:VCC"),
-            ("bb2:tp.25", "neopixel-red:VDD"),
-            ("bb2:tp.27", "neopixel-green:VDD"),
-            ("bb2:tp.28", "neopixel-blue:VDD"),
-            ("bb2:tp.29", "neopixel-yellow:VDD"),
-            ("bb2:tp.26", "servo-visual-only:V+"),
+            ("barrel-jack-breakout:5V", "servo-visual-only:V+"),
+            ("barrel-jack-breakout:5V", "neopixel-red:VDD"),
+            ("barrel-jack-breakout:5V", "neopixel-green:VDD"),
+            ("barrel-jack-breakout:5V", "neopixel-blue:VDD"),
+            ("barrel-jack-breakout:5V", "neopixel-yellow:VDD"),
         )
-        assert_color("#008B8B", ("bb2:tp.30", "barrel-jack-breakout:VCC"))
         assert_color(
             "#000000",
             ("uno:GND.1", "bb1:bn.1"),
             ("bb1:bn.29", "lcd:GND"),
             ("bb1:bn.30", "dfplayer-mock:GND"),
-            ("bb2:bn.30", "barrel-jack-breakout:GND"),
-            ("bb2:bn.25", "neopixel-red:VSS"),
-            ("bb2:bn.27", "neopixel-green:VSS"),
-            ("bb2:bn.28", "neopixel-blue:VSS"),
-            ("bb2:bn.29", "neopixel-yellow:VSS"),
-            ("bb2:bn.26", "servo-visual-only:GND"),
-            ("bb1:bn.2", "bb2:bn.2"),
-            ("bb1:4b.j", "bb1:bn.3"),
-            ("bb1:10b.j", "bb1:bn.4"),
-            ("bb1:16b.j", "bb1:bn.5"),
-            ("bb1:22b.j", "bb1:bn.6"),
-            ("bb1:28b.j", "bb1:bn.7"),
+            ("barrel-jack-breakout:GND", "servo-visual-only:GND"),
+            ("barrel-jack-breakout:GND", "uno:GND.1"),
+            ("barrel-jack-breakout:GND", "neopixel-red:VSS"),
+            ("barrel-jack-breakout:GND", "neopixel-green:VSS"),
+            ("barrel-jack-breakout:GND", "neopixel-blue:VSS"),
+            ("barrel-jack-breakout:GND", "neopixel-yellow:VSS"),
+            ("bb1:4b.j", "bb1:10b.j"),
+            ("bb1:10b.j", "bb1:16b.j"),
+            ("bb1:16b.j", "bb1:22b.j"),
+            ("bb1:22b.j", "bb1:28b.j"),
+            ("bb1:28b.j", "bb1:bn.28"),
         )
         assert_color(
             "#FFFFFF",
@@ -350,7 +377,8 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         )
         assert_color(
             "#FFA500",
-            ("uno:9", "servo-visual-only:PWM"),
+            ("uno:9", "bb1:7t.a"),
+            ("bb1:7t.b", "servo-visual-only:PWM"),
         )
         assert_color(
             "#A52A2A",
@@ -394,13 +422,22 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
                         for item in self.connection_tuples),
                     f"unused Start symbol pin {pin} must not be routed",
                 )
-        for strip_id in ("neopixel-red", "neopixel-green", "neopixel-blue", "neopixel-yellow"):
-            with self.subTest(strip=strip_id):
-                strip = self.parts[strip_id]
-                self.assertEqual(strip["type"], "wokwi-led-strip")
-                self.assertEqual(strip["attrs"]["pixels"], "4")
-                self.assertEqual(strip["attrs"]["pixelSize"], "2020")
-                self.assertEqual(strip["rotate"], 225)
+        self.assertEqual(
+            {part_id for part_id in self.parts if part_id.startswith("neopixel-")},
+            {"neopixel-red", "neopixel-green", "neopixel-blue", "neopixel-yellow"},
+        )
+        for strip_id, left in (
+            ("neopixel-red", 647.537),
+            ("neopixel-green", 727.537),
+            ("neopixel-blue", 807.537),
+            ("neopixel-yellow", 887.537),
+        ):
+            strip = self.parts[strip_id]
+            self.assertEqual(strip["type"], "wokwi-led-strip")
+            self.assertEqual(strip["attrs"], {"pixels": "4", "pixelSize": "2020"})
+            self.assertEqual(strip["top"], 60)
+            self.assertEqual(strip["left"], left)
+            self.assertEqual(strip["rotate"], 225)
         self.assertEqual(self.parts["mp3-tx-resistor"]["attrs"]["value"], "1000")
         self.assertEqual(self.parts["lcd"]["type"], "chip-grove-jhd1804")
         self.assertEqual(self.parts["dfplayer-mock"]["type"], "chip-dfplayer-mock")
@@ -442,82 +479,71 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
                     if other_gpio != gpio:
                         self.assertFalse(reachable(released_graph, gpio_node, f"uno:{other_gpio}"))
 
-
-    def test_barrel_breakout_supply_pins_connect_directly_to_bb2(self):
-        breakout = json.loads((ROOT / "chips" / "barrel-jack-breakout.chip.json").read_text(encoding="utf-8"))
-        self.assertEqual(breakout["pins"], ["VCC", "GND"])
-        expected_supply_links = (
-            ("bb2:tp.30", "barrel-jack-breakout:VCC"),
-            ("bb2:bn.30", "barrel-jack-breakout:GND"),
-        )
-        for left, right in expected_supply_links:
-            with self.subTest(terminal=left):
+    def test_four_independent_strips_connect_data_and_all_primary_power_branches(self):
+        for left, right in STRIP_DATA_LINKS:
+            with self.subTest(data_link=(left, right)):
                 self.assertIn(visible_connection(left, right), self.connection_tuples)
-                for endpoint in (left, right):
-                    self.assertEqual(
-                        sum(endpoint in item[:2] for item in self.connection_tuples),
-                        1,
-                    )
-
-    def test_neopixel_and_servo_signals_stay_direct_and_power_reaches_loads(self):
-        strip_ids = tuple(f"neopixel-{color}" for color in ("red", "green", "blue", "yellow"))
-        for source, destination in (*STRIP_DATA_LINKS, SERVO_PWM_ROUTE):
-            with self.subTest(signal=(source, destination)):
-                self.assertIn(visible_connection(source, destination), self.connection_tuples)
-                self.assertTrue(reachable(self.graph, source, destination))
-                if destination.endswith(":DIN"):
-                    self.assertFalse(any(
-                        reachable(self.graph, source, f"{other_id}:DIN")
-                        for other_id in strip_ids if f"{other_id}:DIN" != destination
-                    ))
-        self.assertFalse(
-            any(endpoint.endswith(":DOUT") for item in self.connection_tuples for endpoint in item[:2]),
-            "independent strip outputs must not have any DOUT-to-DIN chaining wires",
-        )
+                self.assertIn(right, self.graph[left])
 
         power_graph = wire_graph(self.connections)
-        positive_endpoints = (
-            "barrel-jack-breakout:VCC",
-            "bb2:tp.30",
-            *(f"bb2:tp.{index}" for index in range(25, 30)),
-            "neopixel-red:VDD",
-            "servo-visual-only:V+",
-            "neopixel-green:VDD",
-            "neopixel-blue:VDD",
-            "neopixel-yellow:VDD",
-        )
-        negative_endpoints = (
-            "barrel-jack-breakout:GND",
-            "bb2:bn.30",
-            *(f"bb2:bn.{index}" for index in range(25, 30)),
-            "neopixel-red:VSS",
-            "servo-visual-only:GND",
-            "neopixel-green:VSS",
-            "neopixel-blue:VSS",
-            "neopixel-yellow:VSS",
-            "bb2:bn.2",
-            "bb1:bn.2",
-            "uno:GND.1",
-        )
-        for endpoint in positive_endpoints:
-            with self.subTest(positive_endpoint=endpoint):
-                self.assertTrue(reachable(power_graph, "barrel-jack-breakout:VCC", endpoint))
-                self.assertFalse(reachable(power_graph, endpoint, "uno:5V"))
-                self.assertFalse(reachable(power_graph, "barrel-jack-breakout:GND", endpoint))
-        for endpoint in negative_endpoints:
-            with self.subTest(negative_endpoint=endpoint):
-                self.assertTrue(reachable(power_graph, "barrel-jack-breakout:GND", endpoint))
-                self.assertFalse(reachable(power_graph, "barrel-jack-breakout:VCC", endpoint))
+        strip_endpoints = {
+            endpoint for item in self.connection_tuples for endpoint in item[:2]
+            if endpoint.startswith("neopixel-")
+        }
         self.assertEqual(
-            sum(item[:2] == ("bb1:bn.2", "bb2:bn.2") for item in self.connection_tuples),
-            1,
+            strip_endpoints,
+            {
+                "neopixel-red:DIN",
+                "neopixel-red:VSS",
+                "neopixel-red:VDD",
+                "neopixel-green:DIN",
+                "neopixel-green:VSS",
+                "neopixel-green:VDD",
+                "neopixel-blue:DIN",
+                "neopixel-blue:VSS",
+                "neopixel-blue:VDD",
+                "neopixel-yellow:DIN",
+                "neopixel-yellow:VSS",
+                "neopixel-yellow:VDD",
+            },
         )
- 
+        for strip_id in (
+            "neopixel-red",
+            "neopixel-green",
+            "neopixel-blue",
+            "neopixel-yellow",
+        ):
+            self.assertTrue(
+                reachable(power_graph, "barrel-jack-breakout:5V", f"{strip_id}:VDD")
+            )
+            self.assertTrue(
+                reachable(power_graph, "barrel-jack-breakout:GND", f"{strip_id}:VSS")
+            )
+            self.assertFalse(
+                reachable(power_graph, "barrel-jack-breakout:GND", f"{strip_id}:VDD")
+            )
+            self.assertFalse(
+                reachable(power_graph, "barrel-jack-breakout:5V", f"{strip_id}:VSS")
+            )
+        for pin in ("DOUT", "VDD.2", "VSS.2"):
+            for strip_id in (
+                "neopixel-red",
+                "neopixel-green",
+                "neopixel-blue",
+                "neopixel-yellow",
+            ):
+                self.assertNotIn(f"{strip_id}:{pin}", strip_endpoints)
+        self.assertTrue(reachable(power_graph, "barrel-jack-breakout:5V", "servo-visual-only:V+"))
+        self.assertTrue(reachable(power_graph, "barrel-jack-breakout:GND", "servo-visual-only:GND"))
+        self.assertTrue(reachable(power_graph, "barrel-jack-breakout:GND", "uno:GND.1"))
+        self.assertFalse(reachable(power_graph, "uno:5V", "servo-visual-only:V+"))
+        self.assertFalse(reachable(power_graph, "barrel-jack-breakout:5V", "uno:5V"))
 
     def test_d11_1k_resistor_separates_uno_tx_from_mock_rx(self):
         self.assertTrue(reachable(self.graph, "uno:11", "mp3-tx-resistor:1"))
         self.assertTrue(reachable(self.graph, "mp3-tx-resistor:2", "dfplayer-mock:RX"))
         self.assertFalse(reachable(self.graph, "uno:11", "mp3-tx-resistor:2"))
+        self.assertFalse(reachable(self.graph, "uno:11", "dfplayer-mock:RX"))
         self.assertIn(
             connection("mp3-tx-resistor:1", "bb1:1t.b", attrs=("$bb",)),
             EXPECTED_CONNECTIONS,
@@ -540,65 +566,42 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         self.assertFalse(reachable(self.graph, "dfplayer-mock:SPK1", "uno:GND.1"))
         self.assertFalse(reachable(self.graph, "dfplayer-mock:SPK2", "uno:GND.1"))
 
-    def test_bb2_is_only_external_load_distribution_and_common_ground(self):
-        expected_connections = {
-            visible_connection("bb2:tp.30", "barrel-jack-breakout:VCC"),
-            visible_connection("bb2:bn.30", "barrel-jack-breakout:GND"),
-            visible_connection("bb1:bn.2", "bb2:bn.2"),
-            *(visible_connection(left, right) for left, right in STRIP_POWER_LINKS),
-        }
-        actual_connections = {
-            item for item in self.connection_tuples
-            if any(endpoint.startswith("bb2:") for endpoint in item[:2])
-        }
-        self.assertEqual(actual_connections, expected_connections)
-        for load in ("neopixel-red", "neopixel-green", "neopixel-blue", "neopixel-yellow"):
-            self.assertTrue(reachable(self.graph, "barrel-jack-breakout:VCC", f"{load}:VDD"))
-            self.assertTrue(reachable(self.graph, "barrel-jack-breakout:GND", f"{load}:VSS"))
-        self.assertTrue(reachable(self.graph, "barrel-jack-breakout:VCC", "servo-visual-only:V+"))
-        self.assertTrue(reachable(self.graph, "barrel-jack-breakout:GND", "servo-visual-only:GND"))
-        self.assertTrue(reachable(self.graph, "uno:GND.1", "barrel-jack-breakout:GND"))
-        self.assertFalse(reachable(self.graph, "uno:5V", "barrel-jack-breakout:VCC"))
-        self.assertFalse(reachable(self.graph, "barrel-jack-breakout:VCC", "barrel-jack-breakout:GND"))
-
     def test_breadboard_endpoints_stay_inside_supported_hole_and_rail_ranges(self):
         boards = [part for part in self.diagram["parts"] if part["type"] == "wokwi-breadboard-half"]
-        self.assertEqual(len(boards), 2)
-        self.assertEqual([board["id"] for board in boards], ["bb1", "bb2"])
-        for board in boards:
-            self.assertEqual(board["attrs"], {})
-            self.assertNotIn("$bb", json.dumps(board))
+        self.assertEqual(len(boards), 1)
+        self.assertEqual(boards[0]["id"], "bb1")
+        self.assertEqual(boards[0]["attrs"], {})
+        self.assertNotIn("$bb", json.dumps(boards[0]))
         for endpoint in self.graph:
-            if not endpoint.startswith(("bb1:", "bb2:")):
+            if not endpoint.startswith("bb1:"):
                 continue
-            row = re.fullmatch(r"(bb\d+):(\d+)([tb])\.([a-j])", endpoint)
-            rail = re.fullmatch(r"(bb\d+):([tb])([pn])\.(\d+)", endpoint)
+            row = re.fullmatch(r"bb1:(\d+)([tb])\.([a-j])", endpoint)
+            rail = re.fullmatch(r"bb1:([tb])([pn])\.(\d+)", endpoint)
             self.assertTrue(row or rail, f"unsupported breadboard endpoint {endpoint}")
             if row:
-                board, number, section, hole = row.groups()
-                self.assertIn(board, ("bb1", "bb2"))
+                number, section, hole = row.groups()
                 self.assertIn(int(number), range(1, 31))
                 self.assertIn(hole, "abcde" if section == "t" else "fghij")
             else:
-                board, section, polarity, number = rail.groups()
-                self.assertIn(board, ("bb1", "bb2"))
+                section, polarity, number = rail.groups()
                 self.assertIn(section, ("t", "b"))
                 self.assertIn(polarity, ("p", "n"))
                 self.assertIn(int(number), range(1, 31))
 
-    def test_board_ground_returns_use_individual_rail_taps(self):
-        expected_taps = {
-            (f"bb1:{row}b.j", f"bb1:bn.{rail_index}")
-            for row, rail_index in zip(GROUND_BUS_ROWS, range(3, 8))
+    def test_board_ground_returns_share_row_j_trunk_and_one_bottom_rail_tap(self):
+        expected_trunk = {
+            (f"bb1:{left_row}b.j", f"bb1:{right_row}b.j")
+            for left_row, right_row in zip(GROUND_BUS_ROWS, GROUND_BUS_ROWS[1:])
         }
-        actual_taps = {
+        expected_trunk.add(("bb1:28b.j", "bb1:bn.28"))
+        actual_trunk = {
             (wire[0], wire[1])
             for wire in self.connections
             if wire[0].startswith("bb1:")
             and wire[1].startswith("bb1:")
             and (wire[0].endswith("b.j") or wire[1].endswith("b.j"))
         }
-        self.assertEqual(actual_taps, expected_taps)
+        self.assertEqual(actual_trunk, expected_trunk)
         # Button ground contacts occupy these bottom-strip rows; former LED rows may be unused.
         for row in (4, 10, 16, 22, 28):
             with self.subTest(row=row):

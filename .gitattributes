@@ -1,1 +1,2 @@
 /SHA256SUMS -text
+/scripts/build-arduino.sh text eol=lf

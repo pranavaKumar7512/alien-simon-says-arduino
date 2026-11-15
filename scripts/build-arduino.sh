@@ -7,11 +7,12 @@ STAGING_ROOT="$(mktemp -d)"
 trap 'rm -rf "$STAGING_ROOT"' EXIT
 
 # Arduino CLI requires the sketch directory and its primary .ino file to share
-# a basename. Stage only the firmware and its local headers under that name so
-# this project can keep its descriptive parent-folder name.
+# a basename. Stage the nested firmware sketch and its local headers under that
+# name so the surrounding project can keep its descriptive folder layout.
+FIRMWARE_ROOT="$ROOT/alien-simon-says"
 SKETCH_DIR="$STAGING_ROOT/alien-simon-says"
 mkdir -p "$SKETCH_DIR" "$ROOT/build/physical" "$ROOT/build/wokwi"
-cp "$ROOT/alien-simon-says.ino" "$ROOT"/*.h "$SKETCH_DIR/"
+cp "$FIRMWARE_ROOT/alien-simon-says.ino" "$FIRMWARE_ROOT"/*.h "$SKETCH_DIR/"
 
 "$ARDUINO_CLI" compile \
   --fqbn arduino:avr:uno \

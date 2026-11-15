@@ -9,7 +9,7 @@
 #define PLAYER_LED_PIXEL_COUNT (PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL)
 #define PLAYER_LED_BRIGHTNESS 255U
 
-// Independent data outputs for the red, green, blue, and yellow strips.
+// Each color group is one independent four-pixel strip, in red/green/blue/yellow order.
 static const uint8_t PLAYER_LED_DATA_PINS[PLAYER_LED_SYMBOL_COUNT] = {2U, 3U, 4U, 5U};
 
 static inline uint8_t playerLedStripForPixel(uint8_t pixel) {

@@ -422,8 +422,10 @@ class WokwiTestRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "project with spaces"
             root.mkdir()
-            (root / "alien-simon-says.ino").write_text("void setup() {}\n", encoding="utf-8")
-            (root / "helper.h").write_text("// test header\n", encoding="utf-8")
+            firmware = root / "alien-simon-says"
+            firmware.mkdir()
+            (firmware / "alien-simon-says.ino").write_text("void setup() {}\n", encoding="utf-8")
+            (firmware / "helper.h").write_text("// test header\n", encoding="utf-8")
             RUNNER.ROOT = root
             try:
                 with patch.object(RUNNER.subprocess, "run", return_value=SimpleNamespace(
@@ -453,7 +455,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
             RUNNER.forward_delta(100, 200, "reversed")
 
     def test_wokwi_timing_thresholds_match_firmware_constants(self):
-        servo_header = (RUNNER.ROOT / "servo_celebration_config.h").read_text(encoding="utf-8")
+        servo_header = (RUNNER.ROOT / "alien-simon-says" / "servo_celebration_config.h").read_text(encoding="utf-8")
         wokwi_block = re.search(
             r"#if defined\(WOKWI_SIM\)(.*?)#else", servo_header, re.DOTALL
         )
@@ -467,7 +469,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertEqual(int(hold.group(1)), RUNNER.SERVO_GAME_OVER_HOLD_MS)
         self.assertEqual(int(allowance.group(1)), RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS)
 
-        sketch = (RUNNER.ROOT / "alien-simon-says.ino").read_text(encoding="utf-8")
+        sketch = (RUNNER.ROOT / "alien-simon-says" / "alien-simon-says.ino").read_text(encoding="utf-8")
         minimum = re.search(r"static const uint32_t GAME_OVER_MIN_MS = (\d+)UL;", sketch)
         self.assertIsNotNone(minimum)
         self.assertEqual(int(minimum.group(1)), RUNNER.GAME_OVER_MIN_MS)

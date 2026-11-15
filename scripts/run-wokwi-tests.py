@@ -449,7 +449,8 @@ def build_wokwi_firmware(seed: int, previous: int | None, scenario: str,
     try:
         sketch_dir = staging_root / "alien-simon-says"
         sketch_dir.mkdir()
-        for source in (ROOT / "alien-simon-says.ino", *ROOT.glob("*.h")):
+        firmware_root = ROOT / "alien-simon-says"
+        for source in (firmware_root / "alien-simon-says.ino", *firmware_root.glob("*.h")):
             shutil.copy2(source, sketch_dir / source.name)
 
         output_dir = scenario_firmware_dir(scenario, seed, previous)

@@ -110,12 +110,11 @@ uint8_t lcdInitStage = 0;
 bool celebrationWaitingForAudio = false;
 
 SoftwareSerial mp3Serial(MP3_RX_PIN, MP3_TX_PIN);
-Adafruit_NeoPixel playerStripRed(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[0], NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel playerStripGreen(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[1], NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel playerStripBlue(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[2], NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel playerStripYellow(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[3], NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel *const playerStrips[PLAYER_LED_SYMBOL_COUNT] = {
-  &playerStripRed, &playerStripGreen, &playerStripBlue, &playerStripYellow
+Adafruit_NeoPixel playerStrips[PLAYER_LED_SYMBOL_COUNT] = {
+  Adafruit_NeoPixel(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[0], NEO_GRB + NEO_KHZ800),
+  Adafruit_NeoPixel(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[1], NEO_GRB + NEO_KHZ800),
+  Adafruit_NeoPixel(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[2], NEO_GRB + NEO_KHZ800),
+  Adafruit_NeoPixel(PLAYER_LED_PIXELS_PER_SYMBOL, PLAYER_LED_DATA_PINS[3], NEO_GRB + NEO_KHZ800)
 };
 DFRobotDFPlayerMini mp3;
 bool mp3Ready = false;
@@ -264,12 +263,11 @@ static void refreshRoundDisplay() {
 static void allLedsOff();
 static bool showButtonMapping();
 static void writePlayerPixel(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue);
-static void showPlayerStrips();
 
 static void beginButtonMappingDemo(uint32_t effectiveRound) {
   // Each four-pixel strip is physically aligned with one left-to-right button
-  // position. Update and show all four independent outputs so the complete map
-  // is visible simultaneously without relying on the buttons' casing colors.
+  // position. Recolor all four groups in one show() so the complete map is
+  // visible simultaneously without relying on the buttons' casing colors.
   if (!showButtonMapping()) {
     buttonMappingDemoActive = false;
     return;
@@ -337,13 +335,14 @@ static void logInputMapping(uint32_t effectiveRound) {
 static void writePlayerPixel(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue) {
   const uint8_t strip = playerLedStripForPixel(pixel);
   if (strip >= PLAYER_LED_SYMBOL_COUNT) return;
-  Adafruit_NeoPixel *const output = playerStrips[strip];
-  output->setPixelColor(playerLedPixelWithinStrip(pixel), output->Color(red, green, blue));
+  const uint8_t stripPixel = playerLedPixelWithinStrip(pixel);
+  playerStrips[strip].setPixelColor(
+      stripPixel, playerStrips[strip].Color(red, green, blue));
 }
 
 static void showPlayerStrips() {
   for (uint8_t strip = 0U; strip < PLAYER_LED_SYMBOL_COUNT; ++strip) {
-    playerStrips[strip]->show();
+    playerStrips[strip].show();
   }
 }
 
@@ -399,7 +398,7 @@ static bool showButtonMapping() {
 
 static void allLedsOff() {
   for (uint8_t strip = 0U; strip < PLAYER_LED_SYMBOL_COUNT; ++strip) {
-    playerStrips[strip]->clear();
+    playerStrips[strip].clear();
   }
   showPlayerStrips();
 }
@@ -796,8 +795,8 @@ void setup() {
   Wire.setWireTimeout(25000UL, true); // Bound LCD I2C transactions if the bus stalls.
   lcdWaitStartedAt = millis();
   for (uint8_t strip = 0U; strip < PLAYER_LED_SYMBOL_COUNT; ++strip) {
-    playerStrips[strip]->begin();
-    playerStrips[strip]->setBrightness(PLAYER_LED_BRIGHTNESS);
+    playerStrips[strip].begin();
+    playerStrips[strip].setBrightness(PLAYER_LED_BRIGHTNESS);
   }
   playerLedSetAllMappedColors(writePlayerPixel);
   showPlayerStrips();

@@ -18,4 +18,3 @@ binary = "chips/visual-speaker.chip.wasm"
 [[chip]]
 name = "barrel-jack-breakout"
 binary = "chips/barrel-jack-breakout.chip.wasm"
-
