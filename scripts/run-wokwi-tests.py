@@ -24,7 +24,7 @@ BUTTON_PARTS_BY_POSITION = tuple(f"button-{color}" for color in COLORS)
 BUTTONS = BUTTON_PARTS_BY_POSITION
 BUTTON_MAPPING_SEED_SALT = 0xB5297A4D
 BUTTON_MAPPING_FALLBACK_SEED = 0x68E31DA4
-BUTTON_MAPPING_DEMO_MS = 5500
+BUTTON_MAPPING_DEMO_MS = 2750
 ROUND_CELEBRATION_TRACK = 6
 GAME_OVER_LOSS_TRACK = 7
 GAME_OVER_MIN_MS = 3000
@@ -1055,7 +1055,7 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
                 demo_maps == [(1, initial_demo_map), (4, remap_demo_map)] and
                 len(demo_durations) == 2 and
                 all(duration >= BUTTON_MAPPING_DEMO_MS for duration in demo_durations)):
-            raise RuntimeError("initial and remapped LED maps must match their assignments and each stay on for at least 5.5 seconds")
+            raise RuntimeError("initial and remapped LED maps must match their assignments and each stay on for at least 2.75 seconds")
         demo_start_lines = [i for i, line in enumerate(lines)
                             if line.startswith("SIM_BUTTON_DEMO_START:")]
         demo_map_lines = [i for i, line in enumerate(lines)

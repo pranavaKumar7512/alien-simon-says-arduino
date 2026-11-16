@@ -70,9 +70,9 @@ def button_remap_transcript(plan):
                 f"SIM_AUDIO_DONE:{RUNNER.ROUND_CELEBRATION_TRACK}",
                 f"SIM_BUTTON_DEMO_START:4:{clock}",
                 f"SIM_BUTTON_DEMO_MAP:4:{encode(maps[4])}",
-                f"SIM_BUTTON_DEMO_END:4:{clock + 5500}",
+                f"SIM_BUTTON_DEMO_END:4:{clock + RUNNER.BUTTON_MAPPING_DEMO_MS}",
             ))
-            clock += 5600
+            clock += RUNNER.BUTTON_MAPPING_DEMO_MS + 100
     lines.append("SIM_TEST_BUTTON_REMAP_DONE")
     return "\n".join(lines)
 
@@ -281,14 +281,22 @@ class WokwiTestRunnerTests(unittest.TestCase):
         )
         too_short = serial.replace(
             f"SIM_BUTTON_DEMO_END:4:{end_demo}",
-            f"SIM_BUTTON_DEMO_END:4:{int(start_demo) + 5499}",
+            f"SIM_BUTTON_DEMO_END:4:{int(start_demo) + RUNNER.BUTTON_MAPPING_DEMO_MS - 1}",
         )
-        with self.assertRaisesRegex(RuntimeError, "at least 5.5 seconds"):
+        with self.assertRaisesRegex(RuntimeError, "at least 2.75 seconds"):
             RUNNER.validate_transcript("button-remap", plans, 2300, too_short)
 
     def test_button_remap_rejects_later_cue_before_shifted_round_answer(self):
         plan = RUNNER.game_plan(0x12345678, None, 4)
         lines = button_remap_transcript(plan).splitlines()
+        expected_ready = next(line for line in lines if line.startswith("SIM_INPUT_READY:"))
+        ready_prefix, ready_timestamp = expected_ready.rsplit(":", 1)
+        expected_shifted_ready = (
+            f"{ready_prefix}:{(int(ready_timestamp) + 30000) & 0xFFFFFFFF}"
+        )
+        expected_first_cue = next(
+            line for line in lines if line.startswith(f"SIM_CUE_ON:{plan.symbols[0]}:")
+        )
         shifted = []
         for index, line in enumerate(lines):
             shift_timestamp = line.startswith((
@@ -301,8 +309,8 @@ class WokwiTestRunnerTests(unittest.TestCase):
                 line = f"{prefix}:{(int(timestamp) + 30000) & 0xFFFFFFFF}"
             shifted.append(line)
 
-        self.assertIn("SIM_INPUT_READY:37931", shifted)
-        self.assertIn(f"SIM_CUE_ON:{plan.symbols[0]}:8591", shifted)
+        self.assertIn(expected_shifted_ready, shifted)
+        self.assertIn(expected_first_cue, shifted)
         with self.assertRaisesRegex(RuntimeError, "timestamps are out of order"):
             RUNNER.validate_transcript("button-remap", [plan], 2300, "\n".join(shifted))
 
