@@ -14,6 +14,7 @@
 #include "audio_track_config.h"
 #include "first_color_journal.h"
 #include "game_count_store.h"
+#include "score_stats_store.h"
 #include "game_sequence.h"
 #include "player_led_feedback.h"
 #include "servo_celebration_config.h"
@@ -59,8 +60,10 @@ struct BestScoreRecord {
 };
 
 static const uint16_t GAME_COUNT_EEPROM_ADDRESS = sizeof(BestScoreRecord);
-static_assert(sizeof(BestScoreRecord) + GAME_COUNT_STORE_BYTES <= FIRST_COLOR_JOURNAL_BASE,
-              "Game count and best-score record must fit before the first-color journal");
+static_assert(GAME_COUNT_EEPROM_ADDRESS + GAME_COUNT_STORE_BYTES == SCORE_STATS_STORE_BASE,
+              "Session count must immediately follow the best-score record");
+static_assert(SCORE_STATS_STORE_BASE + SCORE_STATS_STORE_BYTES <= FIRST_COLOR_JOURNAL_BASE,
+              "Score statistics must fit before the first-color journal");
 static_assert(PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL == PLAYER_LED_PIXEL_COUNT,
               "Each Simon symbol must map to its configured number of NeoPixels");
 static_assert(PLAYER_LED_SYMBOL_COUNT == FIRST_COLOR_COUNT,
@@ -72,6 +75,9 @@ ButtonDebouncer buttons[5];
 uint32_t bestScore = 0;
 uint32_t completedRounds = 0;
 uint32_t totalGamesPlayed = 0;
+uint32_t scoreSampleCount = 0;
+uint64_t scoreSum = 0;
+bool gameSessionActive = false;
 uint32_t roundLength = 1;
 uint32_t sequenceSeed = 1;
 uint32_t buttonMappingState = 1;
@@ -104,6 +110,9 @@ bool buttonMappingDemoActive = false;
 uint32_t buttonMappingDemoRound = 0UL;
 bool startConsumed = false;
 bool serialStartPending = false;
+char serialCommandBuffer[6] = {0};
+uint8_t serialCommandLength = 0U;
+bool serialCommandOverflow = false;
 bool restartAfterGameOver = false;
 bool audioRunning = false;
 bool audioNeedsInitialStop = true; // DFPlayer may outlive an MCU reset
@@ -255,25 +264,19 @@ static void showIdlePage(uint32_t now) {
   char value[17];
   if (idlePage == 0U) {
     snprintf(value, sizeof(value), "YOUR:%010lu", (unsigned long)completedRounds);
-  } else if (idlePage == 1U) {
-    snprintf(value, sizeof(value), "BEST:%010lu", (unsigned long)bestScore);
   } else {
-    snprintf(value, sizeof(value), "GAMES:%010lu", (unsigned long)totalGamesPlayed);
+    snprintf(value, sizeof(value), "BEST:%010lu", (unsigned long)bestScore);
   }
   updateDisplay("PRESS START", value);
   idlePageStartedAt = now;
 }
 
-static void renderRoundAndScore(uint32_t roundNumber) {
+static void refreshActiveScoreDisplay() {
   char line1[17];
   char line2[17];
-  snprintf(line1, sizeof(line1), "ROUND %lu", (unsigned long)roundNumber);
-  snprintf(line2, sizeof(line2), "SCORE %lu", (unsigned long)completedRounds);
+  snprintf(line1, sizeof(line1), "SCORE:%010lu", (unsigned long)completedRounds);
+  snprintf(line2, sizeof(line2), "BEST:%010lu", (unsigned long)bestScore);
   updateDisplay(line1, line2);
-}
-
-static void refreshRoundDisplay() {
-  renderRoundAndScore(roundLength);
 }
 
 static void allLedsOff();
@@ -505,6 +508,26 @@ static void loadTotalGamesPlayed() {
 static void recordSuccessfulGameStart() {
   totalGamesPlayed = gameCountStoreIncrement(readEepromByte, updateEepromByte,
                                               NULL, GAME_COUNT_EEPROM_ADDRESS);
+}
+
+static void loadScoreStats() {
+  ScoreStatsRecord stats;
+  if (scoreStatsStoreRead(readEepromByte, NULL, SCORE_STATS_STORE_BASE, &stats)) {
+    scoreSampleCount = stats.sampleCount;
+    scoreSum = stats.scoreSum;
+  } else {
+    scoreSampleCount = 0U;
+    scoreSum = 0U;
+  }
+}
+
+static void recordCurrentSessionScore() {
+  if (!gameSessionActive) return;
+
+  scoreStatsStoreAdd(readEepromByte, updateEepromByte, NULL,
+                     SCORE_STATS_STORE_BASE, completedRounds);
+  gameSessionActive = false;
+  loadScoreStats();
 }
 
 static void loadPreviousFirstColor() {
@@ -749,6 +772,7 @@ static void serviceMotorLossReaction(uint32_t now) {
 }
 
 static void beginGameOver(uint32_t now, bool playerLost) {
+  recordCurrentSessionScore();
   allLedsOff();
   char line[17];
   snprintf(line, sizeof(line), "SCORE %lu", (unsigned long)completedRounds);
@@ -792,7 +816,7 @@ static void beginRound(uint32_t now) {
     beginGameOver(now, false);
     return;
   }
-  refreshRoundDisplay();
+  refreshActiveScoreDisplay();
   gameState = PLAY_CUE;
   stateStartedAt = now;
   Serial.println(F("ROUND_START"));
@@ -818,6 +842,7 @@ static void beginGame() {
     return;
   }
   recordSuccessfulGameStart();
+  gameSessionActive = true;
   completedRounds = 0;
 #if defined(WOKWI_SIM) && defined(WOKWI_TEST_CHUNK_BOUNDARY)
   completedRounds = 10UL;
@@ -832,6 +857,7 @@ static void beginGame() {
   buttonMappingDemoRound = 0UL;
   firstColorRecordedForGame = false;
   allLedsOff();
+  refreshActiveScoreDisplay();
   Serial.println(F("GAME_START"));
 #if defined(WOKWI_SIM)
   Serial.println(F("SIM_GAME_START"));
@@ -847,6 +873,7 @@ static void beginGame() {
 }
 
 static void restartActiveGame() {
+  recordCurrentSessionScore();
   stopAudio();
   allLedsOff();
   gameState = IDLE;
@@ -877,6 +904,7 @@ static void completeCorrectAnswer(uint32_t now) {
     bestScore = completedRounds;
     saveBestScore();
   }
+  refreshActiveScoreDisplay();
 #if defined(WOKWI_SIM)
   logSimulationScoreState();
 #endif
@@ -911,7 +939,6 @@ static void completeCorrectAnswer(uint32_t now) {
       return;
     }
     logButtonMapping(completedRounds + 1UL);
-    updateDisplay("ROUND COMPLETE", "CELEBRATION");
     buttonMappingDemoRound = completedRounds + 1UL;
     buttonMappingDemoPending = true;
     startTrack(AUDIO_ROUND_CELEBRATION_TRACK);
@@ -937,12 +964,70 @@ static void updateButtons(uint32_t now) {
   }
 }
 
+static bool serialCommandEquals(const char *expected) {
+  uint8_t index = 0U;
+  while (expected[index] != '\0') {
+    if (index >= serialCommandLength || serialCommandBuffer[index] != expected[index]) {
+      return false;
+    }
+    ++index;
+  }
+  return index == serialCommandLength;
+}
+
+static void printAverageScore() {
+  uint32_t whole = 0U;
+  uint8_t hundredths = 0U;
+  if (!scoreStatsAverageHundredths(scoreSampleCount, scoreSum,
+                                   &whole, &hundredths)) {
+    Serial.println(F("N/A"));
+    return;
+  }
+
+  Serial.print((unsigned long)whole);
+  Serial.print('.');
+  if (hundredths < 10U) Serial.print('0');
+  Serial.println((unsigned int)hundredths);
+}
+
+static void printGameStats() {
+  Serial.println(F("STATS_HEADER,best_rounds,average_rounds"));
+  Serial.print(F("STATS,"));
+  Serial.print((unsigned long)bestScore);
+  Serial.print(',');
+  printAverageScore();
+}
+
+static void processSerialCommand() {
+  if (serialCommandOverflow) {
+    Serial.println(F("SERIAL_COMMAND_TOO_LONG"));
+  } else if (serialCommandEquals("STATS")) {
+    printGameStats();
+  } else if (serialCommandEquals("START") || serialCommandEquals("S")) {
+    serialStartPending = true;
+    Serial.println(F("SERIAL_START_REQUESTED"));
+  } else if (serialCommandLength > 0U) {
+    Serial.println(F("SERIAL_UNKNOWN_COMMAND"));
+  }
+  serialCommandLength = 0U;
+  serialCommandBuffer[0] = '\0';
+  serialCommandOverflow = false;
+}
+
 static void pollSerialStartCommand() {
   while (Serial.available() > 0) {
     const int received = Serial.read();
-    if (received == 'S' || received == 's') {
-      serialStartPending = true;
-      Serial.println(F("SERIAL_START_REQUESTED"));
+    if (received == '\r' || received == '\n') {
+      processSerialCommand();
+    } else if (received >= ' ' && received <= '~') {
+      if (serialCommandLength < sizeof(serialCommandBuffer) - 1U) {
+        char commandChar = (char)received;
+        if (commandChar >= 'a' && commandChar <= 'z') commandChar -= ('a' - 'A');
+        serialCommandBuffer[serialCommandLength++] = commandChar;
+        serialCommandBuffer[serialCommandLength] = '\0';
+      } else {
+        serialCommandOverflow = true;
+      }
     }
   }
 }
@@ -995,6 +1080,7 @@ void setup() {
   }
   readBestScore();
   loadTotalGamesPlayed();
+  loadScoreStats();
   loadPreviousFirstColor();
   initializeServoPwm(SERVO_GAME_OVER_RETRACT_ANGLE);
   mp3Serial.begin(9600);
@@ -1052,7 +1138,7 @@ void loop() {
   switch (gameState) {
     case IDLE:
       if (!startActionHandled && elapsed(now, idlePageStartedAt, SCORE_PAGE_MS)) {
-        idlePage = (uint8_t)((idlePage + 1U) % 3U);
+        idlePage = (uint8_t)((idlePage + 1U) % 2U);
         showIdlePage(now);
       }
       break;

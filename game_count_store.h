@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-// Four EEPROM bytes are reserved between the 12-byte best-score record and
-// FIRST_COLOR_JOURNAL_BASE. Store the bitwise complement so erased 0xFFFFFFFF
-// bytes decode to a logical count of zero while preserving the full uint32 range.
+// Four EEPROM bytes store the persistent session count after the 12-byte
+// best-score record. Store the bitwise complement so erased 0xFFFFFFFF bytes
+// decode to zero while preserving the full uint32 range.
 #define GAME_COUNT_STORE_BYTES 4U
 
 typedef uint8_t (*GameCountReadByte)(uint16_t address, void *context);

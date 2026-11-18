@@ -7,7 +7,8 @@
 
 #define EEPROM_BYTES 1024U
 #define GAME_COUNT_ADDRESS 12U
-#define FIRST_COLOR_JOURNAL_ADDRESS 16U
+#define SCORE_STATS_ADDRESS 16U
+#define FIRST_COLOR_JOURNAL_ADDRESS 48U
 
 static uint8_t fakeEeprom[EEPROM_BYTES];
 static uint32_t updateCount;
@@ -46,16 +47,19 @@ static void test_erased_memory_starts_at_zero_and_persists(void) {
   assert(gameCountStoreLoad(fakeRead, fakeEeprom, GAME_COUNT_ADDRESS) == 2U);
 }
 
-static void test_counter_isolated_from_score_and_first_color_journal(void) {
+static void test_counter_isolated_from_score_stats_and_first_color_journal(void) {
   resetFakeEeprom();
   fakeEeprom[0] = 0x51U; // best-score region sentinel
+  fakeEeprom[SCORE_STATS_ADDRESS] = 0x36U;
   fakeEeprom[FIRST_COLOR_JOURNAL_ADDRESS] = 0xA5U;
   const uint8_t scoreSentinel = fakeEeprom[0];
+  const uint8_t statsSentinel = fakeEeprom[SCORE_STATS_ADDRESS];
   const uint8_t journalSentinel = fakeEeprom[FIRST_COLOR_JOURNAL_ADDRESS];
 
   assert(gameCountStoreIncrement(fakeRead, fakeUpdate, fakeEeprom,
                                  GAME_COUNT_ADDRESS) == 1U);
   assert(fakeEeprom[0] == scoreSentinel);
+  assert(fakeEeprom[SCORE_STATS_ADDRESS] == statsSentinel);
   assert(fakeEeprom[FIRST_COLOR_JOURNAL_ADDRESS] == journalSentinel);
   assert(updateCount > 0U);
 }
@@ -83,7 +87,7 @@ static void test_increment_carries_and_saturates_without_wrapping(void) {
 
 int main(void) {
   test_erased_memory_starts_at_zero_and_persists();
-  test_counter_isolated_from_score_and_first_color_journal();
+  test_counter_isolated_from_score_stats_and_first_color_journal();
   test_increment_carries_and_saturates_without_wrapping();
   puts("game count EEPROM tests passed");
   return 0;

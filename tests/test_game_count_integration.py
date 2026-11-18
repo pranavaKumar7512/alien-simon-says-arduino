@@ -40,15 +40,16 @@ class GameCountIntegrationTests(unittest.TestCase):
         increment = function_body("recordSuccessfulGameStart")
         self.assertIn("gameCountStoreLoad(readEepromByte", loader)
         self.assertIn("gameCountStoreIncrement(readEepromByte, updateEepromByte", increment)
-        self.assertIn('static_assert(sizeof(BestScoreRecord) + GAME_COUNT_STORE_BYTES <= FIRST_COLOR_JOURNAL_BASE', SKETCH)
+        self.assertIn('GAME_COUNT_EEPROM_ADDRESS + GAME_COUNT_STORE_BYTES == SCORE_STATS_STORE_BASE', SKETCH)
+        self.assertIn('SCORE_STATS_STORE_BASE + SCORE_STATS_STORE_BYTES <= FIRST_COLOR_JOURNAL_BASE', SKETCH)
 
-    def test_idle_display_cycles_through_current_best_and_total_game_pages(self):
+    def test_idle_display_hides_session_count_and_cycles_only_score_pages(self):
         idle_page = function_body("showIdlePage")
         self.assertIn('"YOUR:%010lu"', idle_page)
         self.assertIn('"BEST:%010lu"', idle_page)
-        self.assertIn('"GAMES:%010lu"', idle_page)
+        self.assertNotIn('"GAMES:%010lu"', idle_page)
         loop = function_body("loop")
-        self.assertIn("idlePage = (uint8_t)((idlePage + 1U) % 3U);", loop)
+        self.assertIn("idlePage = (uint8_t)((idlePage + 1U) % 2U);", loop)
 
     def test_simulation_reports_counter_after_each_successful_start(self):
         begin_game = function_body("beginGame")
