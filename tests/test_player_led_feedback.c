@@ -70,7 +70,7 @@ int main(void) {
   assert(PLAYER_LED_PIXELS_PER_SYMBOL == 6U);
   assert(PLAYER_LED_PIXEL_COUNT == 24U);
   assert(PLAYER_LED_PIXEL_COUNT == PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL);
-  assert(PLAYER_LED_BRIGHTNESS == 255U);
+  assert(PLAYER_LED_BRIGHTNESS == 64U);
   const uint8_t expected_data_pins[PLAYER_LED_SYMBOL_COUNT] = {2U, 3U, 4U, 12U};
   for (uint8_t strip = 0U; strip < PLAYER_LED_SYMBOL_COUNT; ++strip) {
     assert(PLAYER_LED_DATA_PINS[strip] == expected_data_pins[strip]);
