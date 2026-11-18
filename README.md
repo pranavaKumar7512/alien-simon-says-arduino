@@ -9,6 +9,7 @@ A complete Simon Says sketch for the confirmed **Arduino Uno R3**, with four gen
 ## Project contents
 
 - `alien-simon-says/alien-simon-says.ino` — nonblocking gameplay/state machine; both builds send DFRobotDFPlayerMini frames over SoftwareSerial D10/D11, drive four independent six-pixel strips from D2, D3, D4, and D12 with four Adafruit_NeoPixel objects, and drive the servo from Timer1 hardware PWM on D9/OC1A.
+- `alien-simon-says/game_settings.h` — the one file to edit to tune the game: motor power and timing, player LED brightness, servo travel and timing, MP3 volume, and cue/Game Over/score-page timing. See "Changing game settings" below. Pins, wiring, EEPROM layout, track numbers and LCD text are deliberately not exposed.
 - `alien-simon-says/*.h` — firmware-local headers staged with the sketch. Matching root-level header copies are used by the host C tests and must stay synchronized.
 - `scripts/build-arduino.sh` — stages the nested sketch and its adjacent headers under Arduino CLI's required matching basename and builds physical and Wokwi firmware into the configured output folders.
 - `scripts/run-wokwi-tests.py` — builds test firmware from the nested sketch and generates randomized, seed-replayable Wokwi scenarios with local previous-first-color metadata.
@@ -79,6 +80,7 @@ python3 tests/test_active_score_lcd_integration.py
 python3 tests/test_diagram_led_button_layout.py
 python3 tests/test_diagram_breadboard_nets.py
 python3 tests/test_wokwi_test_runner.py
+python3 tests/test_game_settings.py
 python3 scripts/run-wokwi-tests.py --scenario all
 ```
 
@@ -124,6 +126,12 @@ Both physical and Wokwi builds use the same with-replacement pseudo-random seque
 - Successful rounds 3, 6, 9, … play the dedicated physical/mock track 6 (`/mp3/0006.mp3`) and block the next round until completion or the existing 2.5-second fail-closed timeout; they do not move the servo. Track 6's reported duration (~1.714 s) is within that bound. The servo extends only after a player loses through a wrong answer or chord, then returns to 0°. In Wokwi, its target changes to 180° for a 3-second hold, then to 0° for a separate 3-second return allowance. Physical builds retain the conservative, unverified settings of 90° extend, 0° retract, a 1-second hold, and a 1-second return allowance until the real FS5106B linkage endpoints are verified. These are command-based intervals that include travel time; neither simulation nor elapsed time provides position feedback. Do not widen physical settings until the actual mechanism/load and safe travel are assessed.
 - There is no practical round cap. The firmware stops only if its 32-bit completed-round counter reaches `UINT32_MAX`, a technical overflow safeguard rather than a gameplay limit. SIMON's ten-symbol array is reused as a verifier buffer and does not limit the game sequence.
 - Full-game NeoPixel software brightness is 255/255 (maximum), above the standalone all-components test's 32/255 setting. This is only a software setting—not a current limit or safety rating. Keep physical power disconnected until the strip-plus-servo current and every other power gate are verified.
+
+## Changing game settings
+
+Edit `alien-simon-says/alien-simon-says/game_settings.h`, save it, then compile and upload the sketch again. The Uno cannot read the file while running, so nothing changes until you re-upload. Every value has a comment with its unit and allowed range, and an out-of-range value stops the compile with an error instead of misbehaving. Settings cover the motor (start lead, ramp, max run, power), player LED brightness, servo extend angle and timing (real rig only), MP3 volume, and cue, Game Over and score-page timing.
+
+The defaults equal the previous hard-coded behaviour. `tests/test_game_settings.py` checks that the defaults in `game_settings.h` match the headers' own defaults and that edits and range errors take effect. The Wokwi runner scenarios assume the default timings, so restore the defaults before running `scripts/run-wokwi-tests.py`. Motor power and run time share the 5 V supply with the strips and servo: raise them only after the physical gates below are met.
 
 ## Pin map — physical Uno R3
 

@@ -9,6 +9,7 @@
 #include <Entropy.h>
 #include <avr/wdt.h>
 #endif
+#include "game_settings.h"
 #include "audio_completion_filter.h"
 #include "button_mapping.h"
 #include "audio_track_config.h"
@@ -20,6 +21,10 @@
 #include "servo_celebration_config.h"
 #include "motor_loss_reaction.h"
 #include "motor_drive_config.h"
+
+#if MOTOR_MAX_RUN_MS >= MOTOR_LOSS_FAILSAFE_MS
+#error "MOTOR_MAX_RUN_MS must stay below MOTOR_LOSS_FAILSAFE_MS"
+#endif
 
 #if !defined(F_CPU) || F_CPU != SERVO_PWM_CPU_HZ
 #error "Timer1 servo PWM requires a 16 MHz Uno-class AVR"
@@ -34,13 +39,13 @@ static const uint8_t MOTOR_M1B_PIN = A2;
 static const uint8_t MP3_RX_PIN = 10; // Uno RX <- DFPlayer TX
 static const uint8_t MP3_TX_PIN = 11; // Uno TX -> 1 kOhm -> DFPlayer RX
 static const uint16_t DEBOUNCE_MS = 25;
-static const uint16_t CUE_GAP_MS = 180;
-static const uint16_t BUTTON_FEEDBACK_DARK_MS = 500;
-static const uint16_t SEQUENCE_CUE_MS = 2000;
+static const uint16_t CUE_GAP_MS = SETTING_CUE_GAP_MS;
+static const uint16_t BUTTON_FEEDBACK_DARK_MS = SETTING_BUTTON_FEEDBACK_DARK_MS;
+static const uint16_t SEQUENCE_CUE_MS = SETTING_SEQUENCE_CUE_MS;
 static const uint32_t CUE_TIMEOUT_MS = 2500UL;
 static const uint16_t ENTROPY_ACQUIRE_TIMEOUT_MS = 1200U;
-static const uint32_t GAME_OVER_MIN_MS = 3000UL;
-static const uint32_t SCORE_PAGE_MS = 3000UL;
+static const uint32_t GAME_OVER_MIN_MS = SETTING_GAME_OVER_MIN_MS;
+static const uint32_t SCORE_PAGE_MS = SETTING_SCORE_PAGE_MS;
 static const uint32_t BUTTON_MAPPING_DEMO_DURATION_MS = 2750UL;
 static const uint32_t MAX_COMPLETED_ROUNDS = UINT32_MAX;
 static const uint32_t EEPROM_MAGIC = 0x53494D4FUL;
@@ -1086,7 +1091,7 @@ void setup() {
   mp3Serial.begin(9600);
   // No reset/ACK wait: initialization is bounded; missing player/card is handled as silence.
   mp3Ready = mp3.begin(mp3Serial, false, false);
-  if (mp3Ready) mp3.volume(3);
+  if (mp3Ready) mp3.volume(SETTING_AUDIO_VOLUME);
 #if defined(WOKWI_SIM)
   Serial.println(F("SIM_MODE: DFPlayer protocol mock; visual speaker has no playback"));
 #endif

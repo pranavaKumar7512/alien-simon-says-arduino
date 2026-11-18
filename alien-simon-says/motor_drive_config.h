@@ -5,10 +5,19 @@
 
 // Conservative first-power limits for the FIT0458 6 V motor on the shared 5 V rail.
 // These bound motor current; they are not a verified supply or safety rating.
+#ifndef MOTOR_START_LEAD_MS
 #define MOTOR_START_LEAD_MS 150UL   // servo extends first, so inrush peaks do not stack
+#endif
+#ifndef MOTOR_RAMP_MS
 #define MOTOR_RAMP_MS 300UL         // soft start from 0 to MOTOR_DUTY_MAX
+#endif
+#ifndef MOTOR_MAX_RUN_MS
 #define MOTOR_MAX_RUN_MS 2500UL     // hard cap per loss, independent of audio length
+#endif
+#ifndef MOTOR_DUTY_MAX
 #define MOTOR_DUTY_MAX 128U         // 50% of analogWrite range; raise only after bench tests
+#endif
+// The sketch overrides these from game_settings.h, which is included first.
 
 #if MOTOR_DUTY_MAX > 255
 #error "MOTOR_DUTY_MAX exceeds analogWrite range"

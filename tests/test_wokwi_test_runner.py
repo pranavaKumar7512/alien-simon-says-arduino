@@ -527,8 +527,8 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertEqual(int(hold.group(1)), RUNNER.SERVO_GAME_OVER_HOLD_MS)
         self.assertEqual(int(allowance.group(1)), RUNNER.SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS)
 
-        sketch = (RUNNER.ROOT / "alien-simon-says" / "alien-simon-says.ino").read_text(encoding="utf-8")
-        minimum = re.search(r"static const uint32_t GAME_OVER_MIN_MS = (\d+)UL;", sketch)
+        settings = (RUNNER.ROOT / "alien-simon-says" / "game_settings.h").read_text(encoding="utf-8")
+        minimum = re.search(r"#define SETTING_GAME_OVER_MIN_MS (\d+)UL", settings)
         self.assertIsNotNone(minimum)
         self.assertEqual(int(minimum.group(1)), RUNNER.GAME_OVER_MIN_MS)
 

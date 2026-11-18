@@ -7,7 +7,9 @@
 #define PLAYER_LED_SYMBOL_COUNT 4U
 #define PLAYER_LED_PIXELS_PER_SYMBOL 6U
 #define PLAYER_LED_PIXEL_COUNT (PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL)
+#ifndef PLAYER_LED_BRIGHTNESS
 #define PLAYER_LED_BRIGHTNESS 64U
+#endif
 
 // Each color group is one independent six-pixel strip, in red/green/blue/yellow order.
 static const uint8_t PLAYER_LED_DATA_PINS[PLAYER_LED_SYMBOL_COUNT] = {2U, 3U, 4U, 12U};
