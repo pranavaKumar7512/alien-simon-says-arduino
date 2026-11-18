@@ -13,6 +13,7 @@
 #include "button_mapping.h"
 #include "audio_track_config.h"
 #include "first_color_journal.h"
+#include "game_count_store.h"
 #include "game_sequence.h"
 #include "player_led_feedback.h"
 #include "servo_celebration_config.h"
@@ -53,8 +54,9 @@ struct BestScoreRecord {
   uint32_t check;
 };
 
-static_assert(sizeof(BestScoreRecord) <= FIRST_COLOR_JOURNAL_BASE,
-              "First-color journal must not overlap the best-score record");
+static const uint16_t GAME_COUNT_EEPROM_ADDRESS = sizeof(BestScoreRecord);
+static_assert(sizeof(BestScoreRecord) + GAME_COUNT_STORE_BYTES <= FIRST_COLOR_JOURNAL_BASE,
+              "Game count and best-score record must fit before the first-color journal");
 static_assert(PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL == PLAYER_LED_PIXEL_COUNT,
               "Each Simon symbol must map to its configured number of NeoPixels");
 static_assert(PLAYER_LED_SYMBOL_COUNT == FIRST_COLOR_COUNT,
@@ -65,6 +67,7 @@ static_assert(BUTTON_MAPPING_COUNT == PLAYER_LED_SYMBOL_COUNT,
 ButtonDebouncer buttons[5];
 uint32_t bestScore = 0;
 uint32_t completedRounds = 0;
+uint32_t totalGamesPlayed = 0;
 uint32_t roundLength = 1;
 uint32_t sequenceSeed = 1;
 uint32_t buttonMappingState = 1;
@@ -239,10 +242,12 @@ static void updateDisplay(const char *line1, const char *line2) {
 
 static void showIdlePage(uint32_t now) {
   char value[17];
-  if (idlePage == 0) {
+  if (idlePage == 0U) {
     snprintf(value, sizeof(value), "YOUR:%010lu", (unsigned long)completedRounds);
-  } else {
+  } else if (idlePage == 1U) {
     snprintf(value, sizeof(value), "BEST:%010lu", (unsigned long)bestScore);
+  } else {
+    snprintf(value, sizeof(value), "GAMES:%010lu", (unsigned long)totalGamesPlayed);
   }
   updateDisplay("PRESS START", value);
   idlePageStartedAt = now;
@@ -431,6 +436,16 @@ static uint8_t readEepromByte(uint16_t address, void *context) {
 static void updateEepromByte(uint16_t address, uint8_t value, void *context) {
   (void)context;
   EEPROM.update((int)address, value);
+}
+
+static void loadTotalGamesPlayed() {
+  totalGamesPlayed = gameCountStoreLoad(readEepromByte, NULL,
+                                        GAME_COUNT_EEPROM_ADDRESS);
+}
+
+static void recordSuccessfulGameStart() {
+  totalGamesPlayed = gameCountStoreIncrement(readEepromByte, updateEepromByte,
+                                              NULL, GAME_COUNT_EEPROM_ADDRESS);
 }
 
 static void loadPreviousFirstColor() {
@@ -636,6 +651,7 @@ static void beginGame() {
     Serial.println(F("ENTROPY_TIMEOUT"));
     return;
   }
+  recordSuccessfulGameStart();
   completedRounds = 0;
 #if defined(WOKWI_SIM) && defined(WOKWI_TEST_CHUNK_BOUNDARY)
   completedRounds = 10UL;
@@ -653,6 +669,8 @@ static void beginGame() {
   Serial.println(F("GAME_START"));
 #if defined(WOKWI_SIM)
   Serial.println(F("SIM_GAME_START"));
+  Serial.print(F("SIM_GAMES_PLAYED:"));
+  Serial.println(totalGamesPlayed);
   Serial.print(F("SIM_GAME_SEED:"));
   Serial.println(sequenceSeed);
   logSimulationScoreState();
@@ -808,6 +826,7 @@ void setup() {
     buttons[i].changedAt = now;
   }
   readBestScore();
+  loadTotalGamesPlayed();
   loadPreviousFirstColor();
   initializeServoPwm(SERVO_GAME_OVER_RETRACT_ANGLE);
   mp3Serial.begin(9600);
@@ -861,7 +880,7 @@ void loop() {
   switch (gameState) {
     case IDLE:
       if (!startActionHandled && elapsed(now, idlePageStartedAt, SCORE_PAGE_MS)) {
-        idlePage ^= 1U;
+        idlePage = (uint8_t)((idlePage + 1U) % 3U);
         showIdlePage(now);
       }
       break;

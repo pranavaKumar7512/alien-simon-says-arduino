@@ -808,6 +808,20 @@ def validate_transcript(name: str, plans: list[GamePlan], completion_delay_ms: i
         if not loss_audio_starts or loss_audio_starts[-1] != GAME_OVER_LOSS_TRACK:
             raise RuntimeError("player-loss Game Over must play its dedicated track")
 
+        game_count_states = []
+        for index, line in enumerate(lines):
+            match = re.fullmatch(r"SIM_GAMES_PLAYED:(\d+)", line)
+            if match is not None:
+                game_count_states.append((index, int(match.group(1))))
+        if (len(game_count_states) != 3 or
+                [count for _, count in game_count_states] != [1, 2, 3] or
+                any(not (game_starts[i] < game_count_states[i][0] < game_starts[i + 1])
+                    for i in range(2)) or
+                not (game_starts[2] < game_count_states[2][0] < ready_lines[3])):
+            raise RuntimeError(
+                "start-reset must persistently count the initial, active-reset, and queued successful game starts exactly once"
+            )
+
         score_states = []
         for index, line in enumerate(lines):
             match = re.match(r"SIM_SCORE_STATE:(\d+):(\d+)$", line)
