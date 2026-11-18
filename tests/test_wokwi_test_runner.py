@@ -618,6 +618,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
         self.assertEqual(len(plans[0].symbols), 2)
         lines = [
             "SIM_GAME_START",
+            "SIM_GAMES_PLAYED:1",
             f"SIM_GAME_SEED:{plans[0].seed}",
             f"SIM_SCORE_STATE:0:0",
             f"SIM_FIRST_COLOR:{plans[0].first}",
@@ -648,6 +649,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
         lines.extend((
             "SIM_GAME_RESET",
             "SIM_GAME_START",
+            "SIM_GAMES_PLAYED:2",
             f"SIM_GAME_SEED:{plans[1].seed}",
             "SIM_SCORE_STATE:0:1",
             f"SIM_FIRST_COLOR:{plans[1].first}",
@@ -671,6 +673,7 @@ class WokwiTestRunnerTests(unittest.TestCase):
             f"SIM_GAME_OVER_STOP:{game_over_stop}",
             "SIM_GAME_RESET",
             "SIM_GAME_START",
+            "SIM_GAMES_PLAYED:3",
             f"SIM_GAME_SEED:{plans[2].seed}",
             "SIM_SCORE_STATE:0:1",
             f"SIM_FIRST_COLOR:{plans[2].first}",
@@ -687,6 +690,10 @@ class WokwiTestRunnerTests(unittest.TestCase):
         lost_best = serial.replace("SIM_SCORE_STATE:0:1", "SIM_SCORE_STATE:0:0", 1)
         with self.assertRaisesRegex(RuntimeError, "score telemetry"):
             RUNNER.validate_transcript("start-reset", plans, 2300, lost_best)
+
+        duplicated_game_count = serial.replace("SIM_GAMES_PLAYED:2", "SIM_GAMES_PLAYED:1")
+        with self.assertRaisesRegex(RuntimeError, "game starts exactly once"):
+            RUNNER.validate_transcript("start-reset", plans, 2300, duplicated_game_count)
 
     def test_chunk_boundary_transcript_requires_all_eleven_released_answers(self):
         plans = RUNNER.make_game_plans("chunk-boundary", 0xA341316C, None)
