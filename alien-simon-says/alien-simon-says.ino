@@ -17,6 +17,8 @@
 #include "game_sequence.h"
 #include "player_led_feedback.h"
 #include "servo_celebration_config.h"
+#include "motor_loss_reaction.h"
+#include "motor_drive_config.h"
 
 #if !defined(F_CPU) || F_CPU != SERVO_PWM_CPU_HZ
 #error "Timer1 servo PWM requires a 16 MHz Uno-class AVR"
@@ -26,6 +28,8 @@
 static const uint8_t BUTTON_PINS[5] = {6, 7, 8, A0, A1}; // four play controls left-to-right, then Start
 static const char CUE_COLOR_LETTERS[BUTTON_MAPPING_COUNT] = {'R', 'G', 'B', 'Y'};
 static const uint8_t SERVO_PIN = 9;
+static const uint8_t MOTOR_M1A_PIN = 5;
+static const uint8_t MOTOR_M1B_PIN = A2;
 static const uint8_t MP3_RX_PIN = 10; // Uno RX <- DFPlayer TX
 static const uint8_t MP3_TX_PIN = 11; // Uno TX -> 1 kOhm -> DFPlayer RX
 static const uint16_t DEBOUNCE_MS = 25;
@@ -111,6 +115,13 @@ bool servoRetractionPending = false;
 bool lcdInitialized = false;
 uint8_t lcdInitStage = 0;
 bool celebrationWaitingForAudio = false;
+bool lossAudioError = false;
+bool gameOverWasPlayerLoss = false;
+bool lossRestartReady = false;
+bool lossServoReturnReported = false;
+MotorLossReaction motorLossReaction;
+bool motorActive = false;
+uint32_t motorStartedAt = 0U;
 
 SoftwareSerial mp3Serial(MP3_RX_PIN, MP3_TX_PIN);
 Adafruit_NeoPixel playerStrips[PLAYER_LED_SYMBOL_COUNT] = {
@@ -355,6 +366,54 @@ static void writeServoPulseTicks(uint16_t ticks) {
   OCR1A = ticks;
 }
 
+static void setMotorForward(void) {
+  // Forward is M1A PWM with M1B LOW. Duty stays 0 until serviceMotorDrive() ramps it.
+  digitalWrite(MOTOR_M1B_PIN, LOW);
+  motorStartedAt = millis();
+  motorActive = true;
+#if defined(WOKWI_SIM)
+  Serial.print(F("SIM_MOTOR_ON:"));
+  Serial.println(motorStartedAt);
+#endif
+}
+
+static void stopMotor(void) {
+  uint8_t m1a = 1U;
+  uint8_t m1b = 1U;
+  mdd3aStopInputs(&m1a, &m1b);
+  motorActive = false;
+  // digitalWrite also detaches D5 from Timer0 PWM, so this always ends at LOW/LOW.
+  digitalWrite(MOTOR_M1A_PIN, m1a ? HIGH : LOW);
+  digitalWrite(MOTOR_M1B_PIN, m1b ? HIGH : LOW);
+#if defined(WOKWI_SIM)
+  Serial.print(F("SIM_MOTOR_OFF:"));
+  Serial.println(millis());
+#endif
+}
+
+static void serviceMotorDrive(uint32_t now) {
+  if (!motorActive) return;
+  uint32_t since = now - motorStartedAt;
+  if (motorRunExpired(since)) {
+    stopMotor(); // hard run cap, independent of audio completion
+    return;
+  }
+  uint8_t duty = motorDriveDuty(since);
+  if (duty == 0U) digitalWrite(MOTOR_M1A_PIN, LOW);
+  else analogWrite(MOTOR_M1A_PIN, duty);
+}
+
+static void initializeMotorOutputs(void) {
+  uint8_t m1a = 1U;
+  uint8_t m1b = 1U;
+  mdd3aStopInputs(&m1a, &m1b);
+  // Set safe stop inputs before changing the pins from high-impedance inputs.
+  digitalWrite(MOTOR_M1A_PIN, m1a ? HIGH : LOW);
+  digitalWrite(MOTOR_M1B_PIN, m1b ? HIGH : LOW);
+  pinMode(MOTOR_M1A_PIN, OUTPUT);
+  pinMode(MOTOR_M1B_PIN, OUTPUT);
+}
+
 static void setServoTarget(uint8_t angle) {
   writeServoPulseTicks(servoAngleToPulseTicks(angle));
 }
@@ -501,11 +560,26 @@ static void drainAudioEvents(bool allowActiveCueCompletion) {
   while (mp3.available()) {
     uint8_t type = mp3.readType();
     uint16_t parameter = mp3.read();
+    if (type == DFPlayerError) {
+      if (gameState == GAME_OVER &&
+          motorLossReaction.phase == MOTOR_LOSS_PLAYING && audioRunning) {
+        lossAudioError = true;
+      }
+#if defined(WOKWI_SIM)
+      Serial.print(F("SIM_DFPLAYER_ERROR:"));
+      Serial.println(parameter);
+#endif
+      continue;
+    }
     if (type != DFPlayerPlayFinished || parameter == 0) continue;
 
+    const bool activeLossTrack = gameState == GAME_OVER &&
+      motorLossReaction.phase == MOTOR_LOSS_PLAYING &&
+      activeAudioTrack == AUDIO_GAME_OVER_LOSS_TRACK;
+    const bool isGameOverEvent = gameState == GAME_OVER && !activeLossTrack;
     bool accepted = allowActiveCueCompletion &&
       audioCompletionMatches(parameter, activeAudioTrack, audioRunning,
-                             audioIsGameOver || gameState == GAME_OVER);
+                             isGameOverEvent || (audioIsGameOver && !activeLossTrack));
     if (accepted) audioFinished = true;
 #if defined(WOKWI_SIM)
     if (accepted) {
@@ -528,6 +602,7 @@ static void stopAudio() {
   audioRunning = false;
   audioFinished = false;
   audioIsGameOver = false;
+  lossAudioError = false;
   activeAudioTrack = 0;
   drainAudioEvents(false);
 }
@@ -552,17 +627,23 @@ static void stopSequenceCueAudio(uint8_t symbol) {
 }
 
 static void startTrack(uint8_t track, bool gameOverTrack = false) {
-  stopAudio(); // drains old status before the next track can become active
+  stopAudio(); // stop and drain prior status before the next track can become active
   drainAudioEvents(false);
   activeAudioTrack = track;
   audioIsGameOver = gameOverTrack;
   audioFinished = false;
-  audioRunning = true;
+  lossAudioError = false;
+  audioRunning = mp3Ready;
   audioStartedAt = millis();
   if (mp3Ready) mp3.playMp3Folder(track); // /mp3/0001.mp3 through /mp3/0007.mp3
 #if defined(WOKWI_SIM)
-  Serial.print(F("SIM_AUDIO_START:"));
-  Serial.println(track);
+  if (mp3Ready) {
+    Serial.print(F("SIM_AUDIO_START:"));
+    Serial.println(track);
+  } else {
+    Serial.print(F("SIM_AUDIO_INIT_NOT_READY:"));
+    Serial.println(track);
+  }
 #endif
 }
 
@@ -583,26 +664,21 @@ static bool serviceCueAudio(uint32_t now) {
   return false;
 }
 
-static void beginGameOver(uint32_t now, bool playerLost) {
-  allLedsOff();
-  stopAudio(); // never overlap an active cue with the Game Over sound
-  char line[17];
-  snprintf(line, sizeof(line), "SCORE %lu", (unsigned long)completedRounds);
-  updateDisplay("GAME OVER", line);
-  gameOverStartedAt = millis();
-  uint32_t randomTrackState = sequenceSeed ^ now ^ micros();
-  if (randomTrackState == 0) randomTrackState = 0x6D2B79F5UL;
-  uint8_t randomTrack = (uint8_t)(nextAudioSymbol(randomTrackState) % AUDIO_LAST_CUE_TRACK + 1U);
-  uint8_t track = gameOverAudioTrack(playerLost, randomTrack);
-  startTrack(track, true);
-  gameState = GAME_OVER;
-  Serial.println(F("GAME_OVER"));
+static void applyMotorLossActions(const MotorLossActions &actions) {
+  if (actions.stopMotor) stopMotor();
+  if (actions.retractServo) {
+    setServoTarget(SERVO_GAME_OVER_RETRACT_ANGLE);
+    servoExtendedAt = millis();
+    servoIsExtended = false;
+    servoRetractionPending = true;
+    lossServoReturnReported = false;
 #if defined(WOKWI_SIM)
-  Serial.print(F("SIM_GAME_OVER_START:"));
-  Serial.println(gameOverStartedAt);
+    Serial.print(F("SIM_SERVO_RETRACT:"));
+    Serial.println(servoExtendedAt);
 #endif
-  if (servoWriteGameOverTargetIfLost(playerLost, SERVO_GAME_OVER_EXTEND_ANGLE,
-                                     writeServoPulseTicks)) {
+  }
+  if (actions.extendServo) {
+    setServoTarget(SERVO_GAME_OVER_EXTEND_ANGLE);
     servoExtendedAt = millis();
     servoIsExtended = true;
     servoRetractionPending = false;
@@ -611,6 +687,96 @@ static void beginGameOver(uint32_t now, bool playerLost) {
     Serial.println(servoExtendedAt);
 #endif
   }
+  if (actions.stopAudio) stopAudio();
+  if (actions.driveMotor) setMotorForward();
+  if (actions.startGame) lossRestartReady = true;
+}
+
+static void serviceMotorLossReaction(uint32_t now) {
+  // Process the hard deadline before any queued finish event. A finish first
+  // observed at/after 7 s is not allowed to extend the absolute bound.
+  MotorLossActions service = motorLossService(&motorLossReaction, now,
+      SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS);
+  if (service.stopAudio) {
+#if defined(WOKWI_SIM)
+    Serial.print(F("SIM_LOSS_WATCHDOG:"));
+    Serial.println(now);
+#endif
+    audioFinished = false;
+    applyMotorLossActions(service);
+  } else if (service.startGame) {
+    applyMotorLossActions(service);
+  }
+
+  if (motorLossReaction.phase == MOTOR_LOSS_PLAYING && lossAudioError) {
+#if defined(WOKWI_SIM)
+    Serial.print(F("SIM_LOSS_AUDIO_FAILED:"));
+    Serial.println(now);
+#endif
+    lossAudioError = false;
+    applyMotorLossActions(motorLossFail(&motorLossReaction, now));
+  } else if (motorLossReaction.phase == MOTOR_LOSS_PLAYING && audioFinished) {
+    const uint16_t completedTrack = activeAudioTrack;
+    audioFinished = false;
+    audioRunning = false;
+    audioIsGameOver = false;
+    activeAudioTrack = 0U;
+    bool accepted = false;
+    MotorLossActions actions = motorLossComplete(&motorLossReaction, completedTrack,
+        AUDIO_GAME_OVER_LOSS_TRACK, now, &accepted);
+    if (accepted) {
+#if defined(WOKWI_SIM)
+      Serial.print(F("SIM_LOSS_AUDIO_COMPLETE:"));
+      Serial.println(now);
+#endif
+      applyMotorLossActions(actions);
+    }
+  }
+
+  service = motorLossService(&motorLossReaction, now,
+      SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS);
+  applyMotorLossActions(service);
+  if (motorLossReaction.phase == MOTOR_LOSS_READY) {
+    servoRetractionPending = false;
+    if (!lossServoReturnReported) {
+      lossServoReturnReported = true;
+#if defined(WOKWI_SIM)
+      Serial.print(F("SIM_SERVO_RETRACT_DONE:"));
+      Serial.println(now);
+#endif
+    }
+  }
+}
+
+static void beginGameOver(uint32_t now, bool playerLost) {
+  allLedsOff();
+  char line[17];
+  snprintf(line, sizeof(line), "SCORE %lu", (unsigned long)completedRounds);
+  updateDisplay("GAME OVER", line);
+  gameOverStartedAt = millis();
+  uint32_t randomTrackState = sequenceSeed ^ now ^ micros();
+  if (randomTrackState == 0) randomTrackState = 0x6D2B79F5UL;
+  uint8_t randomTrack = (uint8_t)(nextAudioSymbol(randomTrackState) % AUDIO_LAST_CUE_TRACK + 1U);
+  uint8_t track = gameOverAudioTrack(playerLost, randomTrack);
+  gameState = GAME_OVER;
+  gameOverWasPlayerLoss = playerLost;
+  lossRestartReady = false;
+  lossServoReturnReported = false;
+  startTrack(track, true); // player loss uses AUDIO_GAME_OVER_LOSS_TRACK (7), the only loss file on the SD card
+  Serial.println(F("GAME_OVER"));
+#if defined(WOKWI_SIM)
+  Serial.print(F("SIM_GAME_OVER_START:"));
+  Serial.println(gameOverStartedAt);
+#endif
+  MotorLossActions actions = motorLossBegin(&motorLossReaction, audioStartedAt,
+                                              playerLost, mp3Ready);
+  if (playerLost && !mp3Ready) {
+#if defined(WOKWI_SIM)
+    Serial.print(F("SIM_LOSS_AUDIO_INIT_FAILED:"));
+    Serial.println(millis());
+#endif
+  }
+  applyMotorLossActions(actions);
 }
 
 static void beginRound(uint32_t now) {
@@ -806,6 +972,8 @@ static void failAnswer(uint32_t now, const __FlashStringHelper *reason) {
 
 void setup() {
   Serial.begin(115200); // diagnostics stay on Uno D0/D1
+  initializeMotorOutputs();
+  stopMotor();
   Wire.begin();
   Wire.setWireTimeout(25000UL, true); // Bound LCD I2C transactions if the bus stalls.
   lcdWaitStartedAt = millis();
@@ -866,8 +1034,12 @@ void loop() {
     if (gameState == IDLE) {
       beginGame();
     } else if (gameState == GAME_OVER) {
-      // Keep the loss/servo return sequence intact; start a fresh game afterward.
-      restartAfterGameOver = true;
+      if (gameOverWasPlayerLoss) {
+        MotorLossActions actions = motorLossQueueRestart(&motorLossReaction, millis());
+        applyMotorLossActions(actions);
+      } else {
+        restartAfterGameOver = true;
+      }
       Serial.println(F("GAME_RESET_QUEUED"));
 #if defined(WOKWI_SIM)
       Serial.println(F("SIM_GAME_RESET_QUEUED"));
@@ -1082,35 +1254,35 @@ void loop() {
           !buttonMappingDemoActive) beginRound(millis());
       break;
 
-    case GAME_OVER:
-      drainAudioEvents(false); // discard completion events throughout Game Over
-      if (servoIsExtended && elapsed(now, servoExtendedAt, SERVO_GAME_OVER_HOLD_MS)) {
-        setServoTarget(SERVO_GAME_OVER_RETRACT_ANGLE);
-        servoExtendedAt = millis();
-        servoIsExtended = false;
-        servoRetractionPending = true;
-#if defined(WOKWI_SIM)
-        Serial.print(F("SIM_SERVO_RETRACT:"));
-        Serial.println(servoExtendedAt);
-#endif
-      } else if (servoRetractionPending &&
-                 elapsed(now, servoExtendedAt, SERVO_GAME_OVER_RETRACT_ALLOWANCE_MS)) {
-        // Time-based estimate only; this servo has no position feedback.
-        servoRetractionPending = false;
-#if defined(WOKWI_SIM)
-        Serial.print(F("SIM_SERVO_RETRACT_DONE:"));
-        Serial.println(now);
-#endif
+    case GAME_OVER: {
+      if (gameOverWasPlayerLoss) {
+        if (motorLossReaction.phase == MOTOR_LOSS_PLAYING) drainAudioEvents(true);
+        else drainAudioEvents(false);
+        serviceMotorLossReaction(millis());
+        serviceMotorDrive(millis());
+      } else {
+        drainAudioEvents(false); // ignore the unrelated technical Game Over track
+        if (elapsed(now, gameOverStartedAt, GAME_OVER_MIN_MS)) stopAudio();
       }
-      if (elapsed(now, gameOverStartedAt, GAME_OVER_MIN_MS) &&
+
+      const bool lossReturnReady = !gameOverWasPlayerLoss ||
+          motorLossReaction.phase == MOTOR_LOSS_READY;
+      const bool queuedLossRestart = gameOverWasPlayerLoss && lossRestartReady;
+      const bool screenMinimumElapsed = elapsed(now, gameOverStartedAt, GAME_OVER_MIN_MS);
+      if (lossReturnReady && (queuedLossRestart || screenMinimumElapsed) &&
           !servoIsExtended && !servoRetractionPending) {
         stopAudio();
 #if defined(WOKWI_SIM)
         Serial.print(F("SIM_GAME_OVER_STOP:"));
         Serial.println(now);
 #endif
-        const bool restartQueued = restartAfterGameOver;
+        const bool restartQueued = gameOverWasPlayerLoss
+            ? lossRestartReady
+            : restartAfterGameOver;
         restartAfterGameOver = false;
+        lossRestartReady = false;
+        gameOverWasPlayerLoss = false;
+        motorLossReset(&motorLossReaction);
         enterIdle(now);
         if (restartQueued) {
           Serial.println(F("GAME_RESET"));
@@ -1121,5 +1293,6 @@ void loop() {
         }
       }
       break;
+    }
   }
 }

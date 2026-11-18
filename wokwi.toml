@@ -18,3 +18,11 @@ binary = "chips/visual-speaker.chip.wasm"
 [[chip]]
 name = "barrel-jack-breakout"
 binary = "chips/barrel-jack-breakout.chip.wasm"
+
+[[chip]]
+name = "mdd3a-board-visual"
+binary = "chips/mdd3a-board-visual.chip.wasm"
+
+[[chip]]
+name = "fit0458-motor-visual"
+binary = "chips/fit0458-motor-visual.chip.wasm"

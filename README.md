@@ -55,12 +55,16 @@ wokwi-cli chip compile --output chips/grove-jhd1804.chip.wasm chips/grove-jhd180
 wokwi-cli chip compile --output chips/dfplayer-mock.chip.wasm chips/dfplayer-mock.chip.c
 wokwi-cli chip compile --output chips/visual-speaker.chip.wasm chips/visual-speaker.chip.c
 wokwi-cli chip compile --output chips/barrel-jack-breakout.chip.wasm chips/barrel-jack-breakout.chip.c
+wokwi-cli chip compile --output chips/mdd3a-board-visual.chip.wasm chips/mdd3a-board-visual.chip.c
+wokwi-cli chip compile --output chips/fit0458-motor-visual.chip.wasm chips/fit0458-motor-visual.chip.c
 wokwi-cli lint --warnings-as-errors .
 gcc -std=c99 -Wno-attributes tests/test_grove_jhd1804.c -o build/test_grove_jhd1804 && build/test_grove_jhd1804
 gcc -std=c99 -Wno-attributes tests/test_dfplayer_mock.c -o build/test_dfplayer_mock && build/test_dfplayer_mock
 gcc -std=c99 tests/test_audio_completion_filter.c -o build/test_audio_completion_filter && build/test_audio_completion_filter
 gcc -std=c99 tests/test_game_over_audio_config.c -o build/test_game_over_audio_config && build/test_game_over_audio_config
 gcc -std=c99 tests/test_player_led_feedback.c -o build/test_player_led_feedback && build/test_player_led_feedback
+gcc -std=c99 -Wall -Wextra -Werror tests/test_motor_loss_reaction.c -o build/test_motor_loss_reaction && build/test_motor_loss_reaction
+gcc -std=c99 -Wall -Wextra -Werror tests/test_motor_drive_config.c -o build/test_motor_drive_config && build/test_motor_drive_config
 gcc -std=c99 tests/test_first_color_journal.c -o build/test_first_color_journal && build/test_first_color_journal
 gcc -std=c99 -Wall -Wextra -Werror tests/test_game_count_store.c -o build/test_game_count_store && build/test_game_count_store
 gcc -std=c99 tests/test_game_sequence.c -o build/test_game_sequence && build/test_game_sequence
@@ -124,7 +128,7 @@ Both physical and Wokwi builds use the same with-replacement pseudo-random seque
 | D2 | Red strip DIN | Direct yellow Wokwi data link; the physical jumper's continuity is not independently verified |
 | D3 | Green strip DIN | Direct yellow Wokwi data link; the physical jumper's continuity is not independently verified |
 | D4 | Blue strip DIN | Direct yellow Wokwi data link; the physical jumper's continuity is not independently verified |
-| D5 | Unused | The former yellow-strip data assignment is removed |
+| D5 | MDD3A `M1A` signal input (PWM forward drive) | Motor feature; see Step 6 |
 
 These are user-reported jumper connections; continuity and pad labels/orientation have not been independently measured.
 | D6, D7, D8, A0 | Generic play controls, Buttons 1–4 from left to right | `INPUT_PULLUP`; position—not casing color—identifies each control; pressed input connects to GND |
@@ -136,7 +140,8 @@ These are user-reported jumper connections; continuity and pad labels/orientatio
 | D12 | Yellow strip DIN | Yellow Wokwi data link; user confirms a yellow-colored physical D12-to-yellow-DIN jumper, not independently continuity-tested |
 | 5V / GND | Uno 5V/GND serve logic; the visual breakout routes external load positive/return through the separate `bp`/`tn` breadboard rails to servo and strips | The user reports those rails were professor-checked for the combined strip-plus-servo load, but exact board/rating, continuity, aggregate current, and installed branch state are not independently verified. The diagram is not power-up approval. Keep external +5 V isolated from Uno 5V/barrel and USB; verify common-ground, backfeed, and power sequencing before any authorized energization. |
 | D0 / D1 | USB serial diagnostics | Reserved; keep free of MP3 wiring |
-| A2 / A3 | Unused | No random-number hardware is connected |
+| A2 | MDD3A `M1B` signal input (held LOW) | Motor feature; digital only, no PWM |
+| A3 | Unused | No random-number hardware is connected |
 
 Timer1 is dedicated to the D9/OC1A servo signal. It generates 50 Hz Fast PWM using a 0.5 µs timer tick and a 39999 TOP; servo targets map 0°/90°/180° to 700/1500/2300 µs with no trim offset. The timer continues producing active pulses while the servo is parked—there is no detach operation. Timer1 also owns D10/OC1B's PWM timing, so do not use D9/D10 `analogWrite()` or code that reconfigures Timer1. This does not change the D10 SoftwareSerial RX / D11 TX audio map.
 
@@ -329,6 +334,24 @@ Do not power the strips or servo motor current from Uno USB/5V.
 ```
 
 Before any physical energization, identify the adapter/breakout terminals and polarity, inspect the actual board/rail split and all connections, and verify the board, rail, wire, connector, protection, supply, and combined strip-plus-servo continuous/peak current limits. Confirm the actual servo interface/supply and FS5106B signal range. Check whether D9 PWM or NeoPixel DIN can backfeed an unpowered load or Uno, establish a safe power-off signal state and manufacturer-compatible sequencing, and confirm common ground without joining external positive to Uno power. Verify the exact strip model, pad labels, data-voltage compatibility and any required series resistor/level shifter. Keep all sources disconnected until every gate in [Power and physical limits](#power-and-physical-limits) passes; this reference guide grants no power-up approval.
+
+### Step 6 — FIT0458 motor through the Seeed MAKER MDD3A (loss reaction)
+
+On a player loss the sketch extends the servo, waits `MOTOR_START_LEAD_MS` (150 ms), then ramps the motor on D5 up to `MOTOR_DUTY_MAX` (128/255, about 50%) over `MOTOR_RAMP_MS` (300 ms). The motor always stops at `MOTOR_MAX_RUN_MS` (2.5 s) regardless of audio, and also on the loss track finishing, a DFPlayer error, Start pressed during the loss, or the 7 s loss watchdog. Stop is both inputs LOW. The loss audio is track `0007.mp3`, the file already on the physical SD card. The limits live in `alien-simon-says/motor_drive_config.h`; they bound current and are not a verified safety rating.
+
+```text
+Uno D5  -> MDD3A M1A input (signal header)
+Uno A2  -> MDD3A M1B input (signal header)
+Uno GND rail -> MDD3A logic GND
+Barrel breakout 5V  -> MDD3A VB+   (direct, not through the breadboard rails)
+Barrel breakout GND -> MDD3A VB-   (direct)
+MDD3A motor-1 output terminals -> FIT0458 motor power leads (swap only reverses direction)
+MDD3A 5VO: leave unconnected      FIT0458 encoder leads: leave unconnected and insulated
+```
+
+The Wokwi diagram uses behaviour-free labelled stand-in boards (`chip-mdd3a-board-visual`, `chip-fit0458-motor-visual`) because Wokwi has no MDD3A or FIT0458 part. They model no motion, current or driver logic. Pin names come from the project's earlier motor simulation and the DFRobot FIT0458 page; the MDD3A datasheet was not readable, so check the real board's silkscreen and truth table (High/Low forward, Low/Low stop) before wiring.
+
+Physical gates, all still open: fit a fuse (about 3–5 A) and a 470–1000 µF capacitor at the driver VB+/VB-; measure the shared 5 V / 5 A supply under strips + servo + motor before trusting it; never connect motor VB+ to Uno 5V, USB or Vin, and never use the 9 V battery (FIT0458 is rated 3–7.5 V, 2.8 A stall); D5 and A2 float while the Uno resets or uploads, and no external pull-downs are fitted: with the motor disconnected, power the driver, hold the Uno in reset, and meter M1A/M1B to GND, and add 10 kΩ pull-downs from each input to GND if they do not read near 0 V; first run with the motor disconnected while watching M1A/M1B, then unloaded, then loaded. Do not run full-white strips and the motor together until the current is measured. This section is not energization approval.
 
 ## Power and physical limits
 

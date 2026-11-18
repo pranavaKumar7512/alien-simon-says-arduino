@@ -108,13 +108,13 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         cls.graph = breadboard_graph(cls.connections)
 
     def test_build_derived_diagram_inventory_and_placements(self):
-        self.assertEqual(len(self.parts), 17)
-        self.assertEqual(len(self.connections), 63)
-        self.assertEqual(sum(bool(wire[2]) for wire in self.connections), 43)
+        self.assertEqual(len(self.parts), 19)
+        self.assertEqual(len(self.connections), 70)
+        self.assertEqual(sum(bool(wire[2]) for wire in self.connections), 50)
         placements = [wire for wire in self.connections if wire[3] == ["$bb"]]
         self.assertEqual(len(placements), 20)
         normalized = {tuple(wire[:3]) + (tuple(wire[3]),) for wire in self.connections}
-        self.assertEqual(len(normalized), 63)
+        self.assertEqual(len(normalized), 70)
         self.assertEqual(self.parts["bb1"]["type"], "wokwi-breadboard-half")
         self.assertEqual((self.parts["bb1"]["left"], self.parts["bb1"]["top"]), (330, 350))
         for strip_id in STRIPS:
@@ -173,6 +173,25 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         self.assertFalse(reachable(self.graph, "barrel-jack-breakout:5V", "uno:5V"))
         self.assertFalse(reachable(self.graph, "barrel-jack-breakout:5V", "uno:GND.1"))
         self.assertFalse(reachable(self.graph, "barrel-jack-breakout:GND", "barrel-jack-breakout:5V"))
+
+    def test_motor_driver_wiring_and_separate_supply(self):
+        driver = "motor-driver-mdd3a"
+        # D5 and A2 drive the MDD3A signal inputs; encoder and driver 5VO stay unwired.
+        self.assertIsNotNone(find_connection(self.connections, "uno:5", f"{driver}:M1A"))
+        self.assertIsNotNone(find_connection(self.connections, "uno:A2", f"{driver}:M1B"))
+        self.assertEqual(set(self.parts["motor-fit0458"].get("attrs", {})), set())
+        # Logic ground is shared; the motor supply goes straight to the barrel breakout.
+        self.assertTrue(reachable(self.graph, f"{driver}:GND", "uno:GND.1"))
+        self.assertIsNotNone(find_connection(self.connections, f"{driver}:VB_PLUS", "barrel-jack-breakout:5V"))
+        self.assertIsNotNone(find_connection(self.connections, f"{driver}:VB_MINUS", "barrel-jack-breakout:GND"))
+        self.assertFalse(reachable(self.graph, f"{driver}:VB_PLUS", "uno:5V"))
+        self.assertFalse(reachable(self.graph, f"{driver}:VB_PLUS", f"{driver}:VB_MINUS"))
+        self.assertFalse(reachable(self.graph, f"{driver}:M1A", f"{driver}:M1B"))
+        self.assertFalse(reachable(self.graph, f"{driver}:M1_OUT_A", "uno:5V"))
+        self.assertIsNotNone(find_connection(self.connections, f"{driver}:M1_OUT_A", "motor-fit0458:MOTOR_PLUS"))
+        self.assertIsNotNone(find_connection(self.connections, f"{driver}:M1_OUT_B", "motor-fit0458:MOTOR_MINUS"))
+        for wire in self.connections:
+            self.assertNotIn(f"{driver}:5VO", wire[:2])
 
     def test_buttons_use_separate_released_gpio_and_ground_contacts(self):
         released = switch_graph(self.connections)

@@ -1,0 +1,6 @@
+{
+  "name": "Seeed MAKER MDD3A motor driver, pin labels only (visual only)",
+  "author": "Project-local visual-only model",
+  "pins": ["M1A", "M1B", "GND", "VB_PLUS", "VB_MINUS", "M1_OUT_A", "M1_OUT_B"],
+  "controls": []
+}

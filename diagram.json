@@ -162,6 +162,22 @@
         "pixels": "6",
         "pixelSize": "2020"
       }
+    },
+    {
+      "type": "chip-mdd3a-board-visual",
+      "id": "motor-driver-mdd3a",
+      "top": 320,
+      "left": 980,
+      "rotate": 45,
+      "attrs": {}
+    },
+    {
+      "type": "chip-fit0458-motor-visual",
+      "id": "motor-fit0458",
+      "top": 440,
+      "left": 980,
+      "rotate": 45,
+      "attrs": {}
     }
   ],
   "connections": [
@@ -581,6 +597,48 @@
       "neopixel-yellow:VDD",
       "bb1:bp.16",
       "#FF0000",
+      []
+    ],
+    [
+      "uno:5",
+      "motor-driver-mdd3a:M1A",
+      "#008080",
+      []
+    ],
+    [
+      "uno:A2",
+      "motor-driver-mdd3a:M1B",
+      "#FFA500",
+      []
+    ],
+    [
+      "motor-driver-mdd3a:GND",
+      "bb1:bn.5",
+      "#0000FF",
+      []
+    ],
+    [
+      "motor-driver-mdd3a:VB_PLUS",
+      "barrel-jack-breakout:5V",
+      "#FF0000",
+      []
+    ],
+    [
+      "motor-driver-mdd3a:VB_MINUS",
+      "barrel-jack-breakout:GND",
+      "#000000",
+      []
+    ],
+    [
+      "motor-driver-mdd3a:M1_OUT_A",
+      "motor-fit0458:MOTOR_PLUS",
+      "#FF0000",
+      []
+    ],
+    [
+      "motor-driver-mdd3a:M1_OUT_B",
+      "motor-fit0458:MOTOR_MINUS",
+      "#FFA500",
       []
     ]
   ],
