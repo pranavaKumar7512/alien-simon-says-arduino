@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "wokwi-api.h"
-#include "../audio_track_config.h"
+#include "../alien-simon-says/audio_track_config.h"
 
 #define DFPLAYER_FRAME_SIZE 10
 #define DFPLAYER_EVENT_PLAY_FINISHED 0x3D

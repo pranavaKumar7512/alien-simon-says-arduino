@@ -182,8 +182,10 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         self.assertEqual(set(self.parts["motor-fit0458"].get("attrs", {})), set())
         # Logic ground is shared; the motor supply goes straight to the barrel breakout.
         self.assertTrue(reachable(self.graph, f"{driver}:GND", "uno:GND.1"))
-        self.assertIsNotNone(find_connection(self.connections, f"{driver}:VB_PLUS", "barrel-jack-breakout:5V"))
-        self.assertIsNotNone(find_connection(self.connections, f"{driver}:VB_MINUS", "barrel-jack-breakout:GND"))
+        self.assertIsNotNone(find_connection(self.connections, f"{driver}:VB_PLUS", "bb1:bp.4"))
+        self.assertIsNotNone(find_connection(self.connections, f"{driver}:VB_MINUS", "bb1:tn.7"))
+        self.assertTrue(reachable(self.graph, f"{driver}:VB_PLUS", "barrel-jack-breakout:5V"))
+        self.assertTrue(reachable(self.graph, f"{driver}:VB_MINUS", "barrel-jack-breakout:GND"))
         self.assertFalse(reachable(self.graph, f"{driver}:VB_PLUS", "uno:5V"))
         self.assertFalse(reachable(self.graph, f"{driver}:VB_PLUS", f"{driver}:VB_MINUS"))
         self.assertFalse(reachable(self.graph, f"{driver}:M1A", f"{driver}:M1B"))

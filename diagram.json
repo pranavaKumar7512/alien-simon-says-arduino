@@ -600,45 +600,45 @@
       []
     ],
     [
+      "motor-driver-mdd3a:GND",
+      "bb1:bn.5",
+      "#000000",
+      []
+    ],
+    [
       "uno:5",
       "motor-driver-mdd3a:M1A",
-      "#008080",
+      "purple",
       []
     ],
     [
       "uno:A2",
       "motor-driver-mdd3a:M1B",
-      "#FFA500",
-      []
-    ],
-    [
-      "motor-driver-mdd3a:GND",
-      "bb1:bn.5",
-      "#0000FF",
-      []
-    ],
-    [
-      "motor-driver-mdd3a:VB_PLUS",
-      "barrel-jack-breakout:5V",
-      "#FF0000",
+      "green",
       []
     ],
     [
       "motor-driver-mdd3a:VB_MINUS",
-      "barrel-jack-breakout:GND",
-      "#000000",
+      "bb1:tn.7",
+      "yellow",
+      []
+    ],
+    [
+      "motor-driver-mdd3a:VB_PLUS",
+      "bb1:bp.4",
+      "orange",
       []
     ],
     [
       "motor-driver-mdd3a:M1_OUT_A",
       "motor-fit0458:MOTOR_PLUS",
-      "#FF0000",
+      "red",
       []
     ],
     [
       "motor-driver-mdd3a:M1_OUT_B",
       "motor-fit0458:MOTOR_MINUS",
-      "#FFA500",
+      "black",
       []
     ]
   ],

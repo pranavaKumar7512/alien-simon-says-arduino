@@ -347,15 +347,15 @@ On a player loss the sketch extends the servo, waits `MOTOR_START_LEAD_MS` (150 
 Uno D5  -> MDD3A M1A input (signal header)
 Uno A2  -> MDD3A M1B input (signal header)
 Uno GND rail -> MDD3A logic GND
-Barrel breakout 5V  -> MDD3A VB+   (direct, not through the breadboard rails)
-Barrel breakout GND -> MDD3A VB-   (direct)
+MDD3A VB+ -> bb1 bp.4 (external +5 V rail, next to the barrel breakout 5V wire at bp.3)
+MDD3A VB- -> bb1 tn.7 (external GND rail, yellow wire as built)
 MDD3A motor-1 output terminals -> FIT0458 motor power leads (swap only reverses direction)
 MDD3A 5VO: leave unconnected      FIT0458 encoder leads: leave unconnected and insulated
 ```
 
 The Wokwi diagram uses behaviour-free labelled stand-in boards (`chip-mdd3a-board-visual`, `chip-fit0458-motor-visual`) because Wokwi has no MDD3A or FIT0458 part. They model no motion, current or driver logic. Pin names come from the project's earlier motor simulation and the DFRobot FIT0458 page; the MDD3A datasheet was not readable, so check the real board's silkscreen and truth table (High/Low forward, Low/Low stop) before wiring.
 
-Physical gates, all still open: fit a fuse (about 3–5 A) and a 470–1000 µF capacitor at the driver VB+/VB-; measure the shared 5 V / 5 A supply under strips + servo + motor before trusting it; never connect motor VB+ to Uno 5V, USB or Vin, and never use the 9 V battery (FIT0458 is rated 3–7.5 V, 2.8 A stall); D5 and A2 float while the Uno resets or uploads, and no external pull-downs are fitted: with the motor disconnected, power the driver, hold the Uno in reset, and meter M1A/M1B to GND, and add 10 kΩ pull-downs from each input to GND if they do not read near 0 V; first run with the motor disconnected while watching M1A/M1B, then unloaded, then loaded. Do not run full-white strips and the motor together until the current is measured. This section is not energization approval.
+Physical gates, all still open: the motor current (up to 2.8 A stall) now runs through the half-breadboard rails: the user reports their professor verified the board for this (no rating figure recorded, not independently checked); still confirm the rail jumpers and combined strips + servo + motor load before power-up; fit a fuse (about 3–5 A) and a 470–1000 µF capacitor at the driver VB+/VB-; measure the shared 5 V / 5 A supply under strips + servo + motor before trusting it; never connect motor VB+ to Uno 5V, USB or Vin, and never use the 9 V battery (FIT0458 is rated 3–7.5 V, 2.8 A stall); D5 and A2 float while the Uno resets or uploads, and no external pull-downs are fitted: with the motor disconnected, power the driver, hold the Uno in reset, and meter M1A/M1B to GND, and add 10 kΩ pull-downs from each input to GND if they do not read near 0 V; first run with the motor disconnected while watching M1A/M1B, then unloaded, then loaded. Do not run full-white strips and the motor together until the current is measured. This section is not energization approval.
 
 ## Power and physical limits
 
