@@ -663,7 +663,7 @@ static void startTrack(uint8_t track, bool gameOverTrack = false) {
   lossAudioError = false;
   audioRunning = mp3Ready;
   audioStartedAt = millis();
-  if (mp3Ready) mp3.playMp3Folder(track); // /mp3/0001.mp3 through /mp3/0007.mp3
+  if (mp3Ready) mp3.playMp3Folder(track); // /mp3/0001-button1.mp3 through /mp3/0007-losing.mp3 (matched by leading digits)
 #if defined(WOKWI_SIM)
   if (mp3Ready) {
     Serial.print(F("SIM_AUDIO_START:"));

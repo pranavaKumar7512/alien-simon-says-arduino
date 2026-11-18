@@ -22,7 +22,8 @@ A complete Simon Says sketch for the confirmed **Arduino Uno R3**, with four gen
 - Physical seeds come from the AVR Arduino Entropy library's watchdog/Timer1 timing jitter; Wokwi uses host-injected replay seeds.
 - `servo_celebration_config.h` — shared Game Over servo angle/timing settings and Timer1 pulse conversion for physical and Wokwi builds.
 - `audio_track_config.h` — shared cue-track range plus dedicated celebration and player-loss track selection.
-- `sdcard/mp3/0001.mp3`–`0005.mp3` — existing repository audio files kept unchanged (tracks 1–4 are color cues; track 5 is retained but unused by full-game events). Full-game celebration/loss request user-provided physical tracks 6/7; the user reports these are already at `D:/mp3`, but their contents were not accessed or verified here.
+- `sdcard/card-mp3/` — the seven audio files as they are on the physical SD card (`/mp3/`), named `0001-button1.mp3`–`0004-button4.mp3`, `0005-spare.mp3`, `0006-celebration.mp3` and `0007-losing.mp3`. The firmware plays them by track number with `playMp3Folder(n)`, which matches the leading four digits, so the label after the digits is free text. Hashes are in `SHA256SUMS`.
+- `sdcard/mp3/0001.mp3`–`0005.mp3` — older repository audio files, different recordings from the card, kept unchanged (tracks 1–4 are color cues; track 5 is retained but unused by full-game events). Full-game celebration/loss request user-provided physical tracks 6/7; the user reports these are already at `D:/mp3`, but their contents were not accessed or verified here.
 - `assets/source-sound-alien1-hq.mp3` — retained, attributed alien source sample; it is not used by the generated cues.
 - `SHA256SUMS` — verified SHA-256 hashes for the five repository MP3 assets and retained source sample.
 - `chips/grove-jhd1804.chip.c` / `.chip.json` — local I2C/framebuffer model for the specified Grove/JHD1804 LCD, not a substitute display.
@@ -81,6 +82,7 @@ python3 tests/test_diagram_led_button_layout.py
 python3 tests/test_diagram_breadboard_nets.py
 python3 tests/test_wokwi_test_runner.py
 python3 tests/test_game_settings.py
+python3 tests/test_card_track_files.py
 python3 scripts/run-wokwi-tests.py --scenario all
 ```
 
@@ -326,7 +328,7 @@ MP3-TF-16P SPK2 ─────────────────────�
 Do not connect either speaker output to GND or an Uno pin. The copied diagram routes each speaker terminal directly to its matching mock terminal; this visual connection does not verify the physical speaker path. Keep the speaker unpowered until module output/load ratings are verified.
 ```
 
-The full-game firmware expects `/mp3/0001.mp3`–`0007.mp3`; this repository contains existing files 1–5, while the user reports 6/7 already at `D:/mp3`. Do not overwrite existing card files. No SD/card access or file replacement is part of this change. Begin at volume 3 only after the physical gates are closed. The actual MP3-TF-16P clone/card compatibility and current budget are not confirmed by simulation.
+The full-game firmware expects `/mp3/0001-…mp3`–`0007-…mp3` (see `sdcard/card-mp3/`); this repository contains existing files 1–5, while the user reports 6/7 already at `D:/mp3`. Do not overwrite existing card files. No SD/card access or file replacement is part of this change. Begin at volume 3 only after the physical gates are closed. The actual MP3-TF-16P clone/card compatibility and current budget are not confirmed by simulation.
 
 ### Step 5 — servo signal and separate external load supply
 
