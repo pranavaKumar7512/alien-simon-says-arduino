@@ -345,193 +345,193 @@
     [
       "uno:6",
       "bb1:6t.a",
-      "#FFFFFF",
+      "#0000FF",
       []
     ],
     [
       "uno:7",
       "bb1:12t.a",
-      "#FFFFFF",
+      "#00FFFF",
       []
     ],
     [
       "uno:8",
       "bb1:18t.a",
-      "#FFFFFF",
+      "#FF00FF",
       []
     ],
     [
       "uno:9",
       "bb1:7t.a",
-      "#FFFFFF",
+      "#4682B4",
       []
     ],
     [
       "uno:A0",
       "bb1:24t.a",
-      "#FFFFFF",
+      "#4B0082",
       []
     ],
     [
       "uno:A1",
       "bb1:30t.a",
-      "#FFFFFF",
+      "#7FFF00",
       []
     ],
     [
       "bb1:4b.j",
       "bb1:10b.j",
-      "#000000",
+      "#FF007F",
       []
     ],
     [
       "bb1:10b.i",
       "bb1:16b.i",
-      "#000000",
+      "#DA70D6",
       []
     ],
     [
       "bb1:16b.j",
       "bb1:22b.j",
-      "#000000",
+      "#6B8E23",
       []
     ],
     [
       "bb1:22b.i",
       "bb1:28b.i",
-      "#000000",
+      "#8F00FF",
       []
     ],
     [
       "bb1:28b.j",
       "bb1:bn.25",
-      "#000000",
+      "#00A86B",
       []
     ],
     [
       "uno:GND.1",
       "bb1:bn.1",
-      "#000000",
+      "#007FFF",
       []
     ],
     [
       "uno:11",
       "bb1:1t.a",
-      "#FFA500",
+      "#8E4585",
       []
     ],
     [
       "bb1:1b.g",
       "dfplayer-mock:RX",
-      "#FFA500",
+      "#00FA9A",
       []
     ],
     [
       "dfplayer-mock:TX",
       "bb1:5t.a",
-      "#FFA500",
+      "#0047AB",
       []
     ],
     [
       "bb1:5t.b",
       "uno:10",
-      "#FFA500",
+      "#FF7F50",
       []
     ],
     [
       "dfplayer-mock:GND",
       "bb1:bn.24",
-      "#000000",
+      "#50C878",
       []
     ],
     [
       "uno:5V",
       "bb1:tp.1",
-      "#FF0000",
+      "#40E0D0",
       []
     ],
     [
       "bb1:tp.5",
       "dfplayer-mock:VCC",
-      "#FF0000",
+      "#32CD32",
       []
     ],
     [
       "dfplayer-mock:SPK1",
       "visual-speaker:SPK1",
-      "#808080",
+      "#355E3B",
       []
     ],
     [
       "dfplayer-mock:SPK2",
       "visual-speaker:SPK2",
-      "#000000",
+      "#9ACD32",
       []
     ],
     [
       "uno:A4",
       "lcd:SDA",
-      "#0000FF",
+      "#000080",
       []
     ],
     [
       "uno:A5",
       "lcd:SCL",
-      "#FFFF00",
+      "#CC5500",
       []
     ],
     [
       "bb1:bn.22",
       "lcd:GND",
-      "#000000",
+      "#9370DB",
       []
     ],
     [
       "bb1:tp.22",
       "lcd:VCC",
-      "#FF0000",
+      "#800000",
       []
     ],
     [
       "bb1:7t.b",
       "servo-visual-only:PWM",
-      "#FFA500",
+      "#BFFF00",
       []
     ],
     [
       "uno:GND.2",
       "bb1:tn.1",
-      "#000000",
+      "#00BFFF",
       []
     ],
     [
       "servo-visual-only:GND",
       "bb1:tn.2",
-      "#000000",
+      "#3F00FF",
       []
     ],
     [
       "barrel-jack-breakout:GND",
       "bb1:tn.3",
-      "#000000",
+      "#20B2AA",
       []
     ],
     [
       "servo-visual-only:V+",
       "bb1:bp.2",
-      "#FF0000",
+      "#DC143C",
       []
     ],
     [
       "barrel-jack-breakout:5V",
       "bb1:bp.3",
-      "#FF0000",
+      "#C71585",
       []
     ],
     [
       "barrel-jack-breakout:5V",
       "bb1:tp.2",
-      "#FF0000",
+      "#CD7F32",
       []
     ],
     [
@@ -609,43 +609,43 @@
     [
       "motor-driver-mdd3a:GND",
       "bb1:bn.5",
-      "#000000",
+      "#708090",
       []
     ],
     [
       "uno:5",
       "motor-driver-mdd3a:M1A",
-      "#800080",
+      "#228B22",
       []
     ],
     [
       "uno:A2",
       "motor-driver-mdd3a:M1B",
-      "#800080",
+      "#FF7518",
       []
     ],
     [
       "motor-driver-mdd3a:VB_MINUS",
       "bb1:tn.7",
-      "#000000",
+      "#2E8B57",
       []
     ],
     [
       "motor-driver-mdd3a:VB_PLUS",
       "bb1:bp.4",
-      "#FF0000",
+      "#FF4500",
       []
     ],
     [
       "motor-driver-mdd3a:M1_OUT_A",
       "motor-fit0458:MOTOR_PLUS",
-      "red",
+      "#800080",
       []
     ],
     [
       "motor-driver-mdd3a:M1_OUT_B",
       "motor-fit0458:MOTOR_MINUS",
-      "black",
+      "#4169E1",
       []
     ]
   ],

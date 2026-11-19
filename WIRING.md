@@ -46,38 +46,38 @@ Counts from `diagram.json`: **19 parts**, **71 connection entries** = 51 colored
 | 18 | `button-start:2.r` | `bb1:28b.f` | n/a (component lead) | Place component legs here: Start button lead 2 (column 28 bottom; GND return #31) |
 | 19 | `mp3-tx-resistor:1` | `bb1:1t.b` | n/a (component lead) | Place component legs here: 1 kOhm resistor pin 1 (column 1 top) |
 | 20 | `mp3-tx-resistor:2` | `bb1:1b.f` | n/a (component lead) | Place component legs here: 1 kOhm resistor pin 2 (column 1 bottom; to DFPlayer RX #34) |
-| 21 | `uno:6` | `bb1:6t.a` | White (#FFFFFF) | Button signal: Uno D6 to red play button (Button 1, leftmost) |
-| 22 | `uno:7` | `bb1:12t.a` | White (#FFFFFF) | Button signal: Uno D7 to green play button (Button 2) |
-| 23 | `uno:8` | `bb1:18t.a` | White (#FFFFFF) | Button signal: Uno D8 to blue play button (Button 3) |
-| 24 | `uno:9` | `bb1:7t.a` | White (#FFFFFF) | Servo signal: Uno D9 (Timer1 OC1A) to row 7; then servo PWM via #46 |
-| 25 | `uno:A0` | `bb1:24t.a` | White (#FFFFFF) | Button signal: Uno A0 to yellow play button (Button 4) |
-| 26 | `uno:A1` | `bb1:30t.a` | White (#FFFFFF) | Button signal: Uno A1 to Start button (lead 1) |
-| 27 | `bb1:4b.j` | `bb1:10b.j` | Black (#000000) | Button GND return chain: row 4 bottom to row 10 bottom |
-| 28 | `bb1:10b.i` | `bb1:16b.i` | Black (#000000) | Button GND return chain: row 10 bottom to row 16 bottom |
-| 29 | `bb1:16b.j` | `bb1:22b.j` | Black (#000000) | Button GND return chain: row 16 bottom to row 22 bottom |
-| 30 | `bb1:22b.i` | `bb1:28b.i` | Black (#000000) | Button GND return chain: row 22 bottom to row 28 bottom |
-| 31 | `bb1:28b.j` | `bb1:bn.25` | Black (#000000) | Button GND return chain: row 28 bottom to logic GND rail bn.25 |
-| 32 | `uno:GND.1` | `bb1:bn.1` | Black (#000000) | Logic GND: Uno GND.1 to logic GND rail bn.1 |
-| 33 | `uno:11` | `bb1:1t.a` | Orange (#FFA500) | UART TX (SoftwareSerial): Uno D11 to column 1 top, through 1 kOhm resistor (#19) |
-| 34 | `bb1:1b.g` | `dfplayer-mock:RX` | Orange (#FFA500) | UART TX (SoftwareSerial): resistor pin 2 (column 1 bottom) to DFPlayer RX |
-| 35 | `dfplayer-mock:TX` | `bb1:5t.a` | Orange (#FFA500) | UART RX (SoftwareSerial): DFPlayer TX to column 5 top |
-| 36 | `bb1:5t.b` | `uno:10` | Orange (#FFA500) | UART RX (SoftwareSerial): column 5 bottom group to Uno D10 |
-| 37 | `dfplayer-mock:GND` | `bb1:bn.24` | Black (#000000) | Logic GND: DFPlayer GND to logic GND rail bn.24 |
-| 38 | `uno:5V` | `bb1:tp.1` | Red (#FF0000) | Logic +5 V: Uno 5V pin to logic +5 V rail tp.1 |
-| 39 | `bb1:tp.5` | `dfplayer-mock:VCC` | Red (#FF0000) | Logic +5 V: logic +5 V rail tp.5 to DFPlayer VCC |
-| 40 | `dfplayer-mock:SPK1` | `visual-speaker:SPK1` | Gray (#808080) | Speaker: DFPlayer SPK1 to speaker lead 1 (direct wire, not via breadboard) |
-| 41 | `dfplayer-mock:SPK2` | `visual-speaker:SPK2` | Black (#000000) | Speaker: DFPlayer SPK2 to speaker lead 2 (direct wire, not via breadboard) |
-| 42 | `uno:A4` | `lcd:SDA` | Blue (#0000FF) | LCD SDA (I2C): Uno A4 to Grove LCD SDA |
-| 43 | `uno:A5` | `lcd:SCL` | Yellow (#FFFF00) | LCD SCL (I2C): Uno A5 to Grove LCD SCL |
-| 44 | `bb1:bn.22` | `lcd:GND` | Black (#000000) | Logic GND: logic GND rail bn.22 to LCD GND |
-| 45 | `bb1:tp.22` | `lcd:VCC` | Red (#FF0000) | Logic +5 V: logic +5 V rail tp.22 to LCD VCC |
-| 46 | `bb1:7t.b` | `servo-visual-only:PWM` | Orange (#FFA500) | Servo signal: column 7 bottom (fed from D9 via #24) to servo PWM |
-| 47 | `uno:GND.2` | `bb1:tn.1` | Black (#000000) | Common ground: Uno GND.2 to external GND rail tn.1 |
-| 48 | `servo-visual-only:GND` | `bb1:tn.2` | Black (#000000) | Servo GND: servo GND to external GND rail tn.2 |
-| 49 | `barrel-jack-breakout:GND` | `bb1:tn.3` | Black (#000000) | External GND: barrel breakout GND to external GND rail tn.3 |
-| 50 | `servo-visual-only:V+` | `bb1:bp.2` | Red (#FF0000) | Servo power: servo V+ to external +5 V rail bp.2 |
-| 51 | `barrel-jack-breakout:5V` | `bb1:bp.3` | Red (#FF0000) | External +5 V: barrel breakout 5V to external +5 V rail bp.3 |
-| 52 | `barrel-jack-breakout:5V` | `bb1:tp.2` | Red (#FF0000) | Logic +5 V feed: barrel breakout 5V to logic +5 V rail tp.2 (single-supply design) |
+| 21 | `uno:6` | `bb1:6t.a` | Blue (#0000FF) | Button signal: Uno D6 to red play button (Button 1, leftmost) |
+| 22 | `uno:7` | `bb1:12t.a` | Cyan (#00FFFF) | Button signal: Uno D7 to green play button (Button 2) |
+| 23 | `uno:8` | `bb1:18t.a` | Magenta (#FF00FF) | Button signal: Uno D8 to blue play button (Button 3) |
+| 24 | `uno:9` | `bb1:7t.a` | Steel blue (#4682B4) | Servo signal: Uno D9 (Timer1 OC1A) to row 7; then servo PWM via #46 |
+| 25 | `uno:A0` | `bb1:24t.a` | Indigo (#4B0082) | Button signal: Uno A0 to yellow play button (Button 4) |
+| 26 | `uno:A1` | `bb1:30t.a` | Chartreuse (#7FFF00) | Button signal: Uno A1 to Start button (lead 1) |
+| 27 | `bb1:4b.j` | `bb1:10b.j` | Rose (#FF007F) | Button GND return chain: row 4 bottom to row 10 bottom |
+| 28 | `bb1:10b.i` | `bb1:16b.i` | Orchid (#DA70D6) | Button GND return chain: row 10 bottom to row 16 bottom |
+| 29 | `bb1:16b.j` | `bb1:22b.j` | Olive drab (#6B8E23) | Button GND return chain: row 16 bottom to row 22 bottom |
+| 30 | `bb1:22b.i` | `bb1:28b.i` | Violet (#8F00FF) | Button GND return chain: row 22 bottom to row 28 bottom |
+| 31 | `bb1:28b.j` | `bb1:bn.25` | Jade (#00A86B) | Button GND return chain: row 28 bottom to logic GND rail bn.25 |
+| 32 | `uno:GND.1` | `bb1:bn.1` | Azure (#007FFF) | Logic GND: Uno GND.1 to logic GND rail bn.1 |
+| 33 | `uno:11` | `bb1:1t.a` | Plum (#8E4585) | UART TX (SoftwareSerial): Uno D11 to column 1 top, through 1 kOhm resistor (#19) |
+| 34 | `bb1:1b.g` | `dfplayer-mock:RX` | Spring green (#00FA9A) | UART TX (SoftwareSerial): resistor pin 2 (column 1 bottom) to DFPlayer RX |
+| 35 | `dfplayer-mock:TX` | `bb1:5t.a` | Cobalt (#0047AB) | UART RX (SoftwareSerial): DFPlayer TX to column 5 top |
+| 36 | `bb1:5t.b` | `uno:10` | Coral (#FF7F50) | UART RX (SoftwareSerial): column 5 bottom group to Uno D10 |
+| 37 | `dfplayer-mock:GND` | `bb1:bn.24` | Emerald (#50C878) | Logic GND: DFPlayer GND to logic GND rail bn.24 |
+| 38 | `uno:5V` | `bb1:tp.1` | Turquoise (#40E0D0) | Logic +5 V: Uno 5V pin to logic +5 V rail tp.1 |
+| 39 | `bb1:tp.5` | `dfplayer-mock:VCC` | Lime green (#32CD32) | Logic +5 V: logic +5 V rail tp.5 to DFPlayer VCC |
+| 40 | `dfplayer-mock:SPK1` | `visual-speaker:SPK1` | Hunter green (#355E3B) | Speaker: DFPlayer SPK1 to speaker lead 1 (direct wire, not via breadboard) |
+| 41 | `dfplayer-mock:SPK2` | `visual-speaker:SPK2` | Yellow green (#9ACD32) | Speaker: DFPlayer SPK2 to speaker lead 2 (direct wire, not via breadboard) |
+| 42 | `uno:A4` | `lcd:SDA` | Navy (#000080) | LCD SDA (I2C): Uno A4 to Grove LCD SDA |
+| 43 | `uno:A5` | `lcd:SCL` | Burnt orange (#CC5500) | LCD SCL (I2C): Uno A5 to Grove LCD SCL |
+| 44 | `bb1:bn.22` | `lcd:GND` | Medium purple (#9370DB) | Logic GND: logic GND rail bn.22 to LCD GND |
+| 45 | `bb1:tp.22` | `lcd:VCC` | Maroon (#800000) | Logic +5 V: logic +5 V rail tp.22 to LCD VCC |
+| 46 | `bb1:7t.b` | `servo-visual-only:PWM` | Lime (#BFFF00) | Servo signal: column 7 bottom (fed from D9 via #24) to servo PWM |
+| 47 | `uno:GND.2` | `bb1:tn.1` | Sky blue (#00BFFF) | Common ground: Uno GND.2 to external GND rail tn.1 |
+| 48 | `servo-visual-only:GND` | `bb1:tn.2` | Ultramarine (#3F00FF) | Servo GND: servo GND to external GND rail tn.2 |
+| 49 | `barrel-jack-breakout:GND` | `bb1:tn.3` | Light sea green (#20B2AA) | External GND: barrel breakout GND to external GND rail tn.3 |
+| 50 | `servo-visual-only:V+` | `bb1:bp.2` | Crimson (#DC143C) | Servo power: servo V+ to external +5 V rail bp.2 |
+| 51 | `barrel-jack-breakout:5V` | `bb1:bp.3` | Deep pink (#C71585) | External +5 V: barrel breakout 5V to external +5 V rail bp.3 |
+| 52 | `barrel-jack-breakout:5V` | `bb1:tp.2` | Bronze (#CD7F32) | Logic +5 V feed: barrel breakout 5V to logic +5 V rail tp.2 (single-supply design) |
 | 53 | `uno:2` | `neopixel-red:DIN` | Yellow (#FFFF00) | LED data: Uno D2 to red strip DIN |
 | 54 | `uno:3` | `neopixel-green:DIN` | Yellow (#FFFF00) | LED data: Uno D3 to green strip DIN |
 | 55 | `uno:4` | `neopixel-blue:DIN` | Yellow (#FFFF00) | LED data: Uno D4 to blue strip DIN |
@@ -90,13 +90,13 @@ Counts from `diagram.json`: **19 parts**, **71 connection entries** = 51 colored
 | 62 | `neopixel-green:VDD` | `bb1:bp.10` | Orange (#FFA500) | Strip power (VDD): green strip VDD to external +5 V rail bp.10 |
 | 63 | `neopixel-blue:VDD` | `bb1:bp.11` | Orange (#FFA500) | Strip power (VDD): blue strip VDD to external +5 V rail bp.11 |
 | 64 | `neopixel-yellow:VDD` | `bb1:bp.16` | Red (#FF0000) | Strip power (VDD): yellow strip VDD to external +5 V rail bp.16 |
-| 65 | `motor-driver-mdd3a:GND` | `bb1:bn.5` | Black (#000000) | Motor driver logic GND: MDD3A GND to logic GND rail bn.5 |
-| 66 | `uno:5` | `motor-driver-mdd3a:M1A` | Purple (#800080) | Motor control: Uno D5 to MDD3A M1A (PWM forward) |
-| 67 | `uno:A2` | `motor-driver-mdd3a:M1B` | Purple (#800080) | Motor control: Uno A2 to MDD3A M1B (held LOW) |
-| 68 | `motor-driver-mdd3a:VB_MINUS` | `bb1:tn.7` | Black (#000000) | Motor driver power return: MDD3A VB- to external GND rail tn.7 |
-| 69 | `motor-driver-mdd3a:VB_PLUS` | `bb1:bp.4` | Red (#FF0000) | Motor driver power +: MDD3A VB+ to external +5 V rail bp.4 |
-| 70 | `motor-driver-mdd3a:M1_OUT_A` | `motor-fit0458:MOTOR_PLUS` | Red (named) | Motor output: MDD3A M1_OUT_A to FIT0458 MOTOR_PLUS |
-| 71 | `motor-driver-mdd3a:M1_OUT_B` | `motor-fit0458:MOTOR_MINUS` | Black (named) | Motor output: MDD3A M1_OUT_B to FIT0458 MOTOR_MINUS |
+| 65 | `motor-driver-mdd3a:GND` | `bb1:bn.5` | Slate gray (#708090) | Motor driver logic GND: MDD3A GND to logic GND rail bn.5 |
+| 66 | `uno:5` | `motor-driver-mdd3a:M1A` | Forest green (#228B22) | Motor control: Uno D5 to MDD3A M1A (PWM forward) |
+| 67 | `uno:A2` | `motor-driver-mdd3a:M1B` | Pumpkin (#FF7518) | Motor control: Uno A2 to MDD3A M1B (held LOW) |
+| 68 | `motor-driver-mdd3a:VB_MINUS` | `bb1:tn.7` | Sea green (#2E8B57) | Motor driver power return: MDD3A VB- to external GND rail tn.7 |
+| 69 | `motor-driver-mdd3a:VB_PLUS` | `bb1:bp.4` | Orange-red (#FF4500) | Motor driver power +: MDD3A VB+ to external +5 V rail bp.4 |
+| 70 | `motor-driver-mdd3a:M1_OUT_A` | `motor-fit0458:MOTOR_PLUS` | Purple (#800080) | Motor output: MDD3A M1_OUT_A to FIT0458 MOTOR_PLUS |
+| 71 | `motor-driver-mdd3a:M1_OUT_B` | `motor-fit0458:MOTOR_MINUS` | Royal blue (#4169E1) | Motor output: MDD3A M1_OUT_B to FIT0458 MOTOR_MINUS |
 
 ## 2. Build order (grouped)
 

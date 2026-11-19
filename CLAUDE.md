@@ -29,7 +29,7 @@ NeoPixel Simon-says game on an Arduino Uno R3. Read `../AGENTS.md` (shared rules
 
 ## Conventions
 - After changing supported code, refresh the graph per `../AGENTS.md` (`GRAPHIFY_OUT=../second-brain/graphify-out graphify update .`). Never create another `graphify-out`.
-- Diagram wire colors: red=5V/positive, black=GND/SPK2, white=buttons, orange=UART/servo PWM, blue=SDA, yellow=SCL, purple=motor control, gray=SPK1. **Strip wires (DIN/VDD/VSS) keep the user's reported physical jumper colors** (tests + README pin them).
+- Diagram wire colors: every non-strip colored wire has a unique color (no two share one, none equals a strip color); pick any distinct hex when adding a wire. **Strip wires (DIN/VDD/VSS) keep the user's reported physical jumper colors** (tests + README pin them).
 - Diagram endpoints are pinned by tests (`test_diagram_breadboard_nets.py`, `test_diagram_led_button_layout.py`); recolor only, don't rewire.
 - Changing the diagram's wire count means updating README (line ~33 counts).
 
