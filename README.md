@@ -32,7 +32,8 @@ A complete Simon Says sketch for the confirmed **Arduino Uno R3**, with four gen
 - `chips/dfplayer-mock.chip.c` / `.chip.json` — UART protocol mock for volume, tracks 1–7, stop, and simulated finish events; its default 2,000 ms delay approximates tracks 6/7 while it still does not decode or play MP3 files.
 - `chips/visual-speaker.chip.c` / `.chip.json` — separate two-terminal component named `8 Ω / 0.5 W — no playback`; it is a visual pinout only.
 - `chips/barrel-jack-breakout.chip.c` / `.chip.json` — visual-only female DC barrel-jack-to-2-screw-terminal breakout marker, matching the form shown in the user's photo; its pins do not implement electrical pass-through.
-- `diagram.json`, `wokwi.toml` — the Wokwi canvas now matches the separate build variant's one-board layout: 17 parts, 63 connection entries (43 colored wires plus 20 `$bb` component-lead placements), four six-pixel strips, direct data pins D2/D3/D4/D12, and separate modeled Uno-logic and external-load breadboard rails. Strip DOUT and secondary power pins are open. This logical canvas reflects user-reported routing only; it does not verify physical connections, rail continuity/rating, current, safety, or rendered clearance.
+- `WIRING.md` — copy-ready table of every wire (from, to, color, purpose) for the real build.
+- `diagram.json`, `wokwi.toml` — the Wokwi canvas now matches the separate build variant's one-board layout: 19 parts, 71 connection entries (51 colored wires plus 20 `$bb` component-lead placements), four six-pixel strips, direct data pins D2/D3/D4/D12, and separate modeled Uno-logic and external-load breadboard rails. Strip DOUT and secondary power pins are open. This logical canvas reflects user-reported routing only; it does not verify physical connections, rail continuity/rating, current, safety, or rendered clearance.
 
 ## Build and run
 
@@ -217,7 +218,7 @@ The copied build canvas uses the reported jumper colors for strip power/return, 
 
 The main Wokwi diagram now matches the sibling build canvas: direct D2/D3/D4/D12 data links and separate modeled `bp` positive / `tn` return rails for strip and servo loads, with Uno logic power on separate `tp`/`bn` rails and a common ground reference through Uno GND. No DOUT chaining or secondary strip power pins are shown. The user confirms a yellow-colored physical D12-to-yellow-DIN jumper, but it has not been independently continuity-tested. The user reports professor verification of the first-breadboard rails for combined strip-plus-servo load; exact rating, actual current, wiring, and branch state are not independently verified and this is not energization approval. Verify actual strip pads/signal compatibility, common ground, power sequencing, and backfeed behavior. Firmware groups pixels 0–5 red, 6–11 green, 12–17 blue, and 18–23 yellow. Wokwi structure does not prove physical wiring, ratings, rendered clearance, or runtime behavior.
 
-The Wokwi half breadboard is a logical/visual wiring aid only: it does not verify physical tie-point continuity, component ratings, current capacity, servo supply isolation, or speaker compatibility. The canvas uses the 30-row half-board tilted 45° clockwise, four strips in a 2x2 block at the listed 225° positions, five mounted buttons and the MP3 TX resistor (rotated 135°, with their anchors re-positioned to stay on their holes). The layout tests check anchors, coordinates, footprints, and modeled nets, not visual overlap; inspect it in the user's Wokwi VS Code view for rendered clearance. The breadboard is at `(left, top)=(330, 350)` with `rotate` 45, Uno at `(260, 0)` rotated 45°, LCD at `(150, 300)`, servo at `(680, 125)`, breakout at `(820, 320)`, DFPlayer mock at `(680, 405)`, and visual speaker at `(820, 405)`. Twenty component-lead placements use `$bb`; the four strips are separate components with direct data wires and rail-routed supply. The physical adapter is omitted; the breakout remains visual-only. Keep every hard gate in [Power and physical limits](#power-and-physical-limits) closed until verified.
+The Wokwi half breadboard is a logical/visual wiring aid only: it does not verify physical tie-point continuity, component ratings, current capacity, servo supply isolation, or speaker compatibility. The canvas uses the 30-row half-board tilted 45° clockwise, four strips in a 2x2 block at the listed 225° positions, five mounted buttons and the MP3 TX resistor (rotated 135°, with their anchors re-positioned to stay on their holes). The layout tests check anchors, coordinates, footprints, and modeled nets, not visual overlap; inspect it in the user's Wokwi VS Code view for rendered clearance. The breadboard is at `(left, top)=(330, 350)` with `rotate` 45, Uno at `(401, 990)` rotated 45°, LCD at `(20, 285)`, servo at `(1070, 601)`, breakout at `(930, 105)`, DFPlayer mock at `(30, 855)`, and visual speaker at `(30, 1186)`. Twenty component-lead placements use `$bb`; the four strips are separate components with direct data wires and rail-routed supply. The physical adapter is omitted; the breakout remains visual-only. Keep every hard gate in [Power and physical limits](#power-and-physical-limits) closed until verified.
 
 ### Step 1 — four four-leg play buttons and one two-terminal Start button
 
@@ -264,10 +265,10 @@ Both main and build-variant Wokwi diagrams contain four six-pixel strips. Firmwa
 
 ```text
 Build-derived Wokwi topology (not a verified physical wiring record):
-[RED 0-5]      top 40 / left 1150, rotated 225 degrees (2x2 block, top-left)
-[GREEN 6-11]   top 40 / left 1350, rotated 225 degrees (2x2 block, top-right)
-[BLUE 12-17]   top 240 / left 1150, rotated 225 degrees (2x2 block, bottom-left)
-[YELLOW 18-23] top 240 / left 1350, rotated 225 degrees (2x2 block, bottom-right)
+[RED 0-5]      top 420 / left 1560, rotated 225 degrees (2x2 block, top-left)
+[GREEN 6-11]   top 420 / left 1760, rotated 225 degrees (2x2 block, top-right)
+[BLUE 12-17]   top 620 / left 1560, rotated 225 degrees (2x2 block, bottom-left)
+[YELLOW 18-23] top 620 / left 1760, rotated 225 degrees (2x2 block, bottom-right)
 
 Independent data links:
 Uno D2 -> red DIN; D3 -> green DIN; D4 -> blue DIN; D12 -> yellow DIN
@@ -281,7 +282,7 @@ The main diagram now matches the build variant's modeled routes; neither diagram
 
 With USB and all external supplies disconnected, verify strip markings/direction, actual rail continuity/splits, wire/connector protection and ratings, combined strip-plus-servo current, common ground, signal/backfeed behavior, and power sequencing. Keep external +5 V isolated from Uno 5V/barrel. The user-reported rail check does not independently verify these conditions or authorize energization.
 
-The copied diagram has 17 parts and 63 connection entries (43 colored wires plus 20 `$bb` component-lead placements). These counts are logical structure only, not evidence of present physical wiring, ratings, or rendered clearance. The breakout marker is visual-only. A fresh full render in Wokwi VS Code is still needed to verify appearance and clearance.
+The copied diagram has 19 parts and 71 connection entries (51 colored wires plus 20 `$bb` component-lead placements). These counts are logical structure only, not evidence of present physical wiring, ratings, or rendered clearance. The breakout marker is visual-only. A fresh full render in Wokwi VS Code is still needed to verify appearance and clearance.
 
 ### Step 3 — exact Grove 16x2 LCD
 

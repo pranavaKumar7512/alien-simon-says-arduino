@@ -19,10 +19,10 @@ BOARD_CSS_HEIGHT = 165.5952
 BOARD_CENTER_CSS = (BOARD_LEFT + BOARD_CSS_WIDTH / 2, BOARD_TOP + BOARD_CSS_HEIGHT / 2)
 BOARD_ROTATE = 45
 STRIP_TOPS_LEFTS = {
-    "neopixel-red": (40, 1150),
-    "neopixel-green": (40, 1350),
-    "neopixel-blue": (240, 1150),
-    "neopixel-yellow": (240, 1350),
+    "neopixel-red": (420, 1560),
+    "neopixel-green": (420, 1760),
+    "neopixel-blue": (620, 1560),
+    "neopixel-yellow": (620, 1760),
 }
 EXPECTED_PART_COUNT = 19
 EXPECTED_CONNECTION_COUNT = 71
@@ -148,7 +148,7 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
                 self.assertEqual(strip["rotate"], 225)
                 self.assertAlmostEqual(strip["top"], expected_top)
                 self.assertAlmostEqual(strip["left"], expected_left)
-                self.assertLess(strip["top"], self.parts["button-red"]["top"])
+                self.assertGreater(strip["left"], self.parts["bb1"]["left"] + 400)  # strips stay clear of the tilted breadboard
         # 2x2 block: red top-left, green top-right, blue bottom-left, yellow bottom-right.
         self.assertEqual(self.parts["neopixel-red"]["left"], self.parts["neopixel-blue"]["left"])
         self.assertEqual(self.parts["neopixel-green"]["left"], self.parts["neopixel-yellow"]["left"])
@@ -293,18 +293,18 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
 
     def test_dfplayer_mock_keeps_its_anchor_and_clockwise_rotation(self):
         dfplayer = self.parts["dfplayer-mock"]
-        self.assertEqual((dfplayer["left"], dfplayer["top"]), (680, 405))
+        self.assertEqual((dfplayer["left"], dfplayer["top"]), (30, 855))
         self.assertEqual(dfplayer["rotate"], 45)
 
     def test_reviewed_external_component_anchors_match_the_compact_layout(self):
         # Static anchor regression only; body clearances still need a rendered review.
         expected_anchors = {
-            "uno": (260, 0),
-            "lcd": (150, 300),
-            "servo-visual-only": (680, 125),
-            "dfplayer-mock": (680, 405),
-            "visual-speaker": (820, 405),
-            "barrel-jack-breakout": (820, 320),
+            "uno": (401, 990),
+            "lcd": (20, 285),
+            "servo-visual-only": (1070, 601),
+            "dfplayer-mock": (30, 855),
+            "visual-speaker": (30, 1186),
+            "barrel-jack-breakout": (930, 105),
         }
         expected_rotations = {
             "uno": 45,

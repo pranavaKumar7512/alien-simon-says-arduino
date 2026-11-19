@@ -6,8 +6,8 @@
     {
       "type": "wokwi-servo",
       "id": "servo-visual-only",
-      "top": 125,
-      "left": 680,
+      "top": 601,
+      "left": 1070,
       "attrs": {}
     },
     {
@@ -21,8 +21,8 @@
     {
       "type": "wokwi-arduino-uno",
       "id": "uno",
-      "top": 0,
-      "left": 260,
+      "top": 990,
+      "left": 401,
       "rotate": 45,
       "attrs": {}
     },
@@ -89,8 +89,8 @@
     {
       "type": "chip-dfplayer-mock",
       "id": "dfplayer-mock",
-      "top": 405,
-      "left": 680,
+      "top": 855,
+      "left": 30,
       "rotate": 45,
       "attrs": {
         "completionDelayMs": "2000"
@@ -99,32 +99,32 @@
     {
       "type": "chip-visual-speaker",
       "id": "visual-speaker",
-      "top": 405,
-      "left": 820,
+      "top": 1186,
+      "left": 30,
       "rotate": 45,
       "attrs": {}
     },
     {
       "type": "chip-grove-jhd1804",
       "id": "lcd",
-      "top": 300,
-      "left": 150,
+      "top": 285,
+      "left": 20,
       "rotate": 45,
       "attrs": {}
     },
     {
       "type": "chip-barrel-jack-breakout",
       "id": "barrel-jack-breakout",
-      "top": 320,
-      "left": 820,
+      "top": 105,
+      "left": 930,
       "rotate": 45,
       "attrs": {}
     },
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-red",
-      "top": 40,
-      "left": 1150,
+      "top": 420,
+      "left": 1560,
       "rotate": 225,
       "attrs": {
         "pixels": "6",
@@ -134,8 +134,8 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-green",
-      "top": 40,
-      "left": 1350,
+      "top": 420,
+      "left": 1760,
       "rotate": 225,
       "attrs": {
         "pixels": "6",
@@ -145,8 +145,8 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-blue",
-      "top": 240,
-      "left": 1150,
+      "top": 620,
+      "left": 1560,
       "rotate": 225,
       "attrs": {
         "pixels": "6",
@@ -156,8 +156,8 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-yellow",
-      "top": 240,
-      "left": 1350,
+      "top": 620,
+      "left": 1760,
       "rotate": 225,
       "attrs": {
         "pixels": "6",
@@ -167,16 +167,16 @@
     {
       "type": "chip-mdd3a-board-visual",
       "id": "motor-driver-mdd3a",
-      "top": 320,
-      "left": 980,
+      "top": 965,
+      "left": 1701,
       "rotate": 45,
       "attrs": {}
     },
     {
       "type": "chip-fit0458-motor-visual",
       "id": "motor-fit0458",
-      "top": 440,
-      "left": 980,
+      "top": 1166,
+      "left": 1301,
       "rotate": 45,
       "attrs": {}
     }

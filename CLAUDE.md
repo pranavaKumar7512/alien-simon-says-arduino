@@ -33,11 +33,6 @@ NeoPixel Simon-says game on an Arduino Uno R3. Read `../AGENTS.md` (shared rules
 - Diagram endpoints are pinned by tests (`test_diagram_breadboard_nets.py`, `test_diagram_led_button_layout.py`); recolor only, don't rewire.
 - Changing the diagram's wire count means updating README (line ~33 counts).
 
-## Working mode (user-directed — don't forget)
-- **Claude is the orchestrator only: do NOT write or edit code/diagram/test files yourself.** Delegate every implementation and verification step to Haiku agents (`model: haiku`, via the Agent tool or herdr panes) and give each a precise, self-contained brief. Claude may only plan, brief agents, read results, edit this CLAUDE.md/memory notes, and report.
-- Run independent agents in parallel; keep a separate Haiku agent for verification (tests, pin/wire counts, net equivalence). Commit only when asked.
-- Herdr panes running `claude` in an untrusted folder stop at the trust prompt; the user must approve that. The Agent tool avoids it.
-
 ## Security / safety
 - Secrets only in `.env` (git-ignored); never echo `WOKWI_CLI_TOKEN` or read `.env` aloud.
 - No power-up approval exists. Follow README physical-power gates before energizing; simulations/notes don't prove hardware state.
