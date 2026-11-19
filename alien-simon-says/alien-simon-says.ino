@@ -47,7 +47,7 @@ static const uint16_t ENTROPY_ACQUIRE_TIMEOUT_MS = 1200U;
 static const uint32_t GAME_OVER_MIN_MS = SETTING_GAME_OVER_MIN_MS;
 static const uint32_t SCORE_PAGE_MS = SETTING_SCORE_PAGE_MS;
 static const uint32_t BUTTON_MAPPING_DEMO_DURATION_MS = 2750UL;
-static const uint16_t IDLE_DANCE_STEP_MS = 120U; // random light show while waiting for Start
+static const uint16_t IDLE_DANCE_STEP_MS = 120U; // all-pixel random R/G/B/Y color dance while waiting for Start
 static const uint32_t MAX_COMPLETED_ROUNDS = UINT32_MAX;
 static const uint32_t EEPROM_MAGIC = 0x53494D4FUL;
 static const uint32_t EEPROM_CHECK_XOR = 0xA55A39C6UL;
@@ -324,17 +324,13 @@ static void serviceIdleDance(uint32_t now) {
   idleDanceStepAt = now;
   idleDanceRng ^= micros(); // fold in timing jitter so each power-up dances differently
   if (idleDanceRng == 0U) idleDanceRng = 0x6D2B79F5UL;
-  static const uint8_t palette[5][3] = {
-    {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 160, 0}, {255, 255, 255}
+  static const uint8_t palette[4][3] = {
+    {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0} // R, G, B, Y (game colors)
   };
+  // Every pixel shows the same color each frame; pick a new random one each step.
+  const uint8_t *c = palette[xorshift32(idleDanceRng) >> 30];
   for (uint8_t pixel = 0U; pixel < PLAYER_LED_PIXEL_COUNT; ++pixel) {
-    const uint32_t r = xorshift32(idleDanceRng);
-    if ((r & 3U) == 0U) { // ~25% of pixels lit per frame
-      const uint8_t *c = palette[(r >> 8) % 5U];
-      writePlayerPixel(pixel, c[0], c[1], c[2]);
-    } else {
-      writePlayerPixel(pixel, 0, 0, 0);
-    }
+    writePlayerPixel(pixel, c[0], c[1], c[2]);
   }
   showPlayerStrips();
 }
