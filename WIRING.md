@@ -412,3 +412,14 @@ Nothing here is energization approval. Work through every item with the supply O
 14. [ ] LCD: use the Seeed Grove 16x2 LCD (JHD1804M1). Follow the Grove connector orientation. Do not swap SDA (A4) and SCL (A5). I2C address 0x3E.
 15. [ ] DFPlayer (MP3-TF-16P): verify the module's supply and output ratings before powering. Speaker goes ONLY across SPK1 and SPK2, never to an Uno pin or GND. Start at volume 3. Verify microSD/card compatibility.
 16. [ ] No approved power-up sequence exists yet. Complete README 'Physical validation plan' step 1 (unpowered inspection) before any energization.
+
+## Branch `led-start-button`: illuminated 4-terminal Start button
+
+| Button terminal | Wire | Uno pin |
+|---|---|---|
+| Switch lug 1 | Blue | `A1` (INPUT_PULLUP) |
+| Switch lug 2 (opposite outer lug) | add 4th wire | `GND` |
+| LED `+` | Red | `A3` (`START_LED_PIN`, direct; user reports LED rating verified for 5 V) |
+| LED `-` | Black | `GND` |
+
+Diagram: modeled as a separate `led-start` LED (`uno:A3` -> anode, cathode -> `bb1:bn.26`); Wokwi has no 4-terminal illuminated button. Firmware blinks the LED every 500 ms in IDLE/GAME_OVER, off during play.

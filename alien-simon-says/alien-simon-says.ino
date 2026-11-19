@@ -34,6 +34,8 @@
 static const uint8_t BUTTON_PINS[5] = {6, 7, 8, A0, A1}; // four play controls left-to-right, then Start
 static const char CUE_COLOR_LETTERS[BUTTON_MAPPING_COUNT] = {'R', 'G', 'B', 'Y'};
 static const uint8_t SERVO_PIN = 9;
+static const uint8_t START_LED_PIN = A3; // lit Start button LED: A3 -> LED +; LED - -> GND (user-verified rating, no external resistor)
+static const uint16_t START_LED_BLINK_MS = 500;
 static const uint8_t MOTOR_M1A_PIN = 5;
 static const uint8_t MOTOR_M1B_PIN = A2;
 static const uint8_t MP3_RX_PIN = 10; // Uno RX <- DFPlayer TX
@@ -1083,6 +1085,8 @@ void setup() {
     buttons[i].pressed = buttons[i].rawPressed;
     buttons[i].changedAt = now;
   }
+  pinMode(START_LED_PIN, OUTPUT);
+  digitalWrite(START_LED_PIN, LOW);
   readBestScore();
   loadTotalGamesPlayed();
   loadScoreStats();
@@ -1103,6 +1107,8 @@ void loop() {
   const uint32_t now = millis();
   pollSerialStartCommand();
   updateButtons(now);
+  // Start button light: blinks while waiting for a game (IDLE / GAME_OVER), dark during play.
+  digitalWrite(START_LED_PIN, ((gameState == IDLE || gameState == GAME_OVER) && ((now / START_LED_BLINK_MS) & 1UL) == 0UL) ? HIGH : LOW);
   if (!serviceLcdInitialization(now)) return;
   if (idlePageStartedAt == 0) {
     startConsumed = buttons[4].pressed;

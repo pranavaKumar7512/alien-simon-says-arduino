@@ -108,13 +108,13 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         cls.graph = breadboard_graph(cls.connections)
 
     def test_build_derived_diagram_inventory_and_placements(self):
-        self.assertEqual(len(self.parts), 19)
-        self.assertEqual(len(self.connections), 71)
-        self.assertEqual(sum(bool(wire[2]) for wire in self.connections), 51)
+        self.assertEqual(len(self.parts), 20)
+        self.assertEqual(len(self.connections), 73)
+        self.assertEqual(sum(bool(wire[2]) for wire in self.connections), 53)
         placements = [wire for wire in self.connections if wire[3] == ["$bb"]]
         self.assertEqual(len(placements), 20)
         normalized = {tuple(wire[:3]) + (tuple(wire[3]),) for wire in self.connections}
-        self.assertEqual(len(normalized), 71)
+        self.assertEqual(len(normalized), 73)
         self.assertEqual(self.parts["bb1"]["type"], "wokwi-breadboard-half")
         self.assertEqual((self.parts["bb1"]["left"], self.parts["bb1"]["top"]), (330, 350))
         for strip_id in STRIPS:
