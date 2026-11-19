@@ -344,19 +344,19 @@
     [
       "uno:6",
       "bb1:6t.a",
-      "#FF0000",
+      "#FFFFFF",
       []
     ],
     [
       "uno:7",
       "bb1:12t.a",
-      "#00FF00",
+      "#FFFFFF",
       []
     ],
     [
       "uno:8",
       "bb1:18t.a",
-      "#0000FF",
+      "#FFFFFF",
       []
     ],
     [
@@ -368,7 +368,7 @@
     [
       "uno:A0",
       "bb1:24t.a",
-      "#FFFF00",
+      "#FFFFFF",
       []
     ],
     [
@@ -380,55 +380,55 @@
     [
       "bb1:4b.j",
       "bb1:10b.j",
-      "#FF0000",
+      "#000000",
       []
     ],
     [
       "bb1:10b.i",
       "bb1:16b.i",
-      "#FFFFFF",
+      "#000000",
       []
     ],
     [
       "bb1:16b.j",
       "bb1:22b.j",
-      "#FFFF00",
+      "#000000",
       []
     ],
     [
       "bb1:22b.i",
       "bb1:28b.i",
-      "#FFA500",
+      "#000000",
       []
     ],
     [
       "bb1:28b.j",
       "bb1:bn.25",
-      "#00FF00",
+      "#000000",
       []
     ],
     [
       "uno:GND.1",
       "bb1:bn.1",
-      "#00FF00",
+      "#000000",
       []
     ],
     [
       "uno:11",
       "bb1:1t.a",
-      "#FFFFFF",
+      "#FFA500",
       []
     ],
     [
       "bb1:1b.g",
       "dfplayer-mock:RX",
-      "#808080",
+      "#FFA500",
       []
     ],
     [
       "dfplayer-mock:TX",
       "bb1:5t.a",
-      "#006400",
+      "#FFA500",
       []
     ],
     [
@@ -440,7 +440,7 @@
     [
       "dfplayer-mock:GND",
       "bb1:bn.24",
-      "#800080",
+      "#000000",
       []
     ],
     [
@@ -452,13 +452,13 @@
     [
       "bb1:tp.5",
       "dfplayer-mock:VCC",
-      "#FFA500",
+      "#FF0000",
       []
     ],
     [
       "dfplayer-mock:SPK1",
       "visual-speaker:SPK1",
-      "#FFFF00",
+      "#808080",
       []
     ],
     [
@@ -470,19 +470,19 @@
     [
       "uno:A4",
       "lcd:SDA",
-      "#A52A2A",
+      "#0000FF",
       []
     ],
     [
       "uno:A5",
       "lcd:SCL",
-      "#FFFFFF",
+      "#FFFF00",
       []
     ],
     [
       "bb1:bn.22",
       "lcd:GND",
-      "#00008B",
+      "#000000",
       []
     ],
     [
@@ -494,37 +494,37 @@
     [
       "bb1:7t.b",
       "servo-visual-only:PWM",
-      "#800000",
+      "#FFA500",
       []
     ],
     [
       "uno:GND.2",
       "bb1:tn.1",
-      "#800080",
+      "#000000",
       []
     ],
     [
       "servo-visual-only:GND",
       "bb1:tn.2",
-      "#FFA500",
+      "#000000",
       []
     ],
     [
       "barrel-jack-breakout:GND",
       "bb1:tn.3",
-      "#FFA500",
+      "#000000",
       []
     ],
     [
       "servo-visual-only:V+",
       "bb1:bp.2",
-      "#00FF00",
+      "#FF0000",
       []
     ],
     [
       "barrel-jack-breakout:5V",
       "bb1:bp.3",
-      "#A52A2A",
+      "#FF0000",
       []
     ],
     [
@@ -608,25 +608,25 @@
     [
       "uno:5",
       "motor-driver-mdd3a:M1A",
-      "purple",
+      "#800080",
       []
     ],
     [
       "uno:A2",
       "motor-driver-mdd3a:M1B",
-      "green",
+      "#800080",
       []
     ],
     [
       "motor-driver-mdd3a:VB_MINUS",
       "bb1:tn.7",
-      "yellow",
+      "#000000",
       []
     ],
     [
       "motor-driver-mdd3a:VB_PLUS",
       "bb1:bp.4",
-      "orange",
+      "#FF0000",
       []
     ],
     [

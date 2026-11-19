@@ -2,5 +2,6 @@
   "name": "DFRobot FIT0458 DC motor, power leads only (visual only)",
   "author": "Project-local visual-only model",
   "pins": ["MOTOR_PLUS", "MOTOR_MINUS"],
+  "display": { "width": 64, "height": 64 },
   "controls": []
 }
