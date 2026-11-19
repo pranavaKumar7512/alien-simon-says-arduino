@@ -8,7 +8,7 @@
 #define PLAYER_LED_PIXELS_PER_SYMBOL 6U
 #define PLAYER_LED_PIXEL_COUNT (PLAYER_LED_SYMBOL_COUNT * PLAYER_LED_PIXELS_PER_SYMBOL)
 #ifndef PLAYER_LED_BRIGHTNESS
-#define PLAYER_LED_BRIGHTNESS 64U
+#define PLAYER_LED_BRIGHTNESS 255U
 #endif
 
 // Each color group is one independent six-pixel strip, in red/green/blue/yellow order.

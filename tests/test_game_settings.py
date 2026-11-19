@@ -44,7 +44,7 @@ class GameSettingsTest(unittest.TestCase):
         values = parse(out)
         self.assertEqual(values["MOTOR_DUTY_MAX"], "128")
         self.assertEqual(values["MOTOR_MAX_RUN_MS"], "2500")
-        self.assertEqual(values["PLAYER_LED_BRIGHTNESS"], "64")
+        self.assertEqual(values["PLAYER_LED_BRIGHTNESS"], "255")
         self.assertEqual(values["SERVO_GAME_OVER_EXTEND_ANGLE"], "90")
 
     def test_command_line_override_wins_over_the_header_defaults(self):

@@ -39,7 +39,7 @@
 // ---------------------------------------------------------------------
 // Brightness of the four player strips, 0-255. 64 = about 25 %.
 // Higher values draw more current from the shared 5 V supply.
-#define PLAYER_LED_BRIGHTNESS 64U
+#define PLAYER_LED_BRIGHTNESS 255U
 
 // ---------------------------------------------------------------------
 //  SERVO (real rig only; the Wokwi simulator keeps its own values)

@@ -41,10 +41,13 @@ class ActiveScoreLcdIntegrationTests(unittest.TestCase):
         begin_game = function_body("beginGame")
         score_reset = begin_game.index("completedRounds = 0;")
         display_refresh = begin_game.index("refreshActiveScoreDisplay();")
-        mapping_preview = begin_game.index("beginButtonMappingDemo(1UL);")
-        active_state = begin_game.index("gameState = SHOW_INITIAL_MAPPING;")
+        intro_flash = begin_game.index("beginIntroFlash(")
         self.assertLess(score_reset, display_refresh)
-        self.assertLess(display_refresh, mapping_preview)
+        self.assertLess(display_refresh, intro_flash)
+        # The random intro flash hands off to the initial mapping preview.
+        intro_service = function_body("serviceIntroFlash")
+        mapping_preview = intro_service.index("beginButtonMappingDemo(1UL);")
+        active_state = intro_service.index("gameState = SHOW_INITIAL_MAPPING;")
         self.assertLess(mapping_preview, active_state)
 
     def test_active_score_is_preserved_through_cue_and_answer_wait_states(self):

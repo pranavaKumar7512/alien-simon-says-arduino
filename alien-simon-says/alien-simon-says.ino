@@ -47,6 +47,8 @@ static const uint16_t ENTROPY_ACQUIRE_TIMEOUT_MS = 1200U;
 static const uint32_t GAME_OVER_MIN_MS = SETTING_GAME_OVER_MIN_MS;
 static const uint32_t SCORE_PAGE_MS = SETTING_SCORE_PAGE_MS;
 static const uint32_t BUTTON_MAPPING_DEMO_DURATION_MS = 2750UL;
+static const uint32_t INTRO_FLASH_DURATION_MS = 1500UL; // random light show after Start
+static const uint16_t INTRO_FLASH_STEP_MS = 90U;
 static const uint32_t MAX_COMPLETED_ROUNDS = UINT32_MAX;
 static const uint32_t EEPROM_MAGIC = 0x53494D4FUL;
 static const uint32_t EEPROM_CHECK_XOR = 0xA55A39C6UL;
@@ -102,6 +104,9 @@ uint32_t answerIndex = 0;
 uint32_t stateStartedAt = 0;
 uint32_t idlePageStartedAt = 0;
 uint32_t buttonMappingDemoStartedAt = 0;
+uint32_t introFlashStartedAt = 0;
+uint32_t introFlashStepAt = 0;
+uint32_t introFlashRng = 1;
 uint32_t buttonFeedbackStartedAt = 0;
 uint32_t gameOverStartedAt = 0;
 uint32_t audioStartedAt = 0;
@@ -149,6 +154,7 @@ bool mp3Ready = false;
 
 enum GameState : uint8_t {
   IDLE,
+  INTRO_FLASH,
   SHOW_INITIAL_MAPPING,
   PLAY_CUE,
   CUE_SOUND,
@@ -287,6 +293,8 @@ static void refreshActiveScoreDisplay() {
 static void allLedsOff();
 static bool showButtonMapping();
 static void writePlayerPixel(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue);
+static void showPlayerStrips();
+static void logButtonMapping(uint32_t effectiveRound);
 
 static void beginButtonMappingDemo(uint32_t effectiveRound) {
   // Each six-pixel strip is aligned with one left-to-right button position.
@@ -312,6 +320,39 @@ static void beginButtonMappingDemo(uint32_t effectiveRound) {
   }
   Serial.println();
 #endif
+}
+
+static void beginIntroFlash(uint32_t now) {
+  introFlashStartedAt = now;
+  introFlashStepAt = now - INTRO_FLASH_STEP_MS; // first frame on the next service call
+  introFlashRng = sequenceSeed ^ micros() ^ 0x9E3779B9UL;
+  if (introFlashRng == 0U) introFlashRng = 0x6D2B79F5UL;
+  gameState = INTRO_FLASH;
+}
+
+static void serviceIntroFlash(uint32_t now) {
+  if (elapsed(now, introFlashStartedAt, INTRO_FLASH_DURATION_MS)) {
+    allLedsOff();
+    logButtonMapping(1UL);
+    beginButtonMappingDemo(1UL);
+    gameState = SHOW_INITIAL_MAPPING;
+    return;
+  }
+  if (!elapsed(now, introFlashStepAt, INTRO_FLASH_STEP_MS)) return;
+  introFlashStepAt = now;
+  static const uint8_t palette[5][3] = {
+    {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 160, 0}, {255, 255, 255}
+  };
+  for (uint8_t pixel = 0U; pixel < PLAYER_LED_PIXEL_COUNT; ++pixel) {
+    const uint32_t r = xorshift32(introFlashRng);
+    if ((r & 3U) == 0U) { // ~25% of pixels lit per frame
+      const uint8_t *c = palette[(r >> 8) % 5U];
+      writePlayerPixel(pixel, c[0], c[1], c[2]);
+    } else {
+      writePlayerPixel(pixel, 0, 0, 0);
+    }
+  }
+  showPlayerStrips();
 }
 
 static void serviceButtonMappingDemo(uint32_t now) {
@@ -872,9 +913,7 @@ static void beginGame() {
   Serial.println(sequenceSeed);
   logSimulationScoreState();
 #endif
-  logButtonMapping(1UL);
-  beginButtonMappingDemo(1UL);
-  gameState = SHOW_INITIAL_MAPPING;
+  beginIntroFlash(millis()); // random flash, then mapping demo
 }
 
 static void restartActiveGame() {
@@ -1146,6 +1185,10 @@ void loop() {
         idlePage = (uint8_t)((idlePage + 1U) % 2U);
         showIdlePage(now);
       }
+      break;
+
+    case INTRO_FLASH:
+      serviceIntroFlash(millis());
       break;
 
     case SHOW_INITIAL_MAPPING:
