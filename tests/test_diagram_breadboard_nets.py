@@ -109,12 +109,12 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
 
     def test_build_derived_diagram_inventory_and_placements(self):
         self.assertEqual(len(self.parts), 19)
-        self.assertEqual(len(self.connections), 70)
-        self.assertEqual(sum(bool(wire[2]) for wire in self.connections), 50)
+        self.assertEqual(len(self.connections), 71)
+        self.assertEqual(sum(bool(wire[2]) for wire in self.connections), 51)
         placements = [wire for wire in self.connections if wire[3] == ["$bb"]]
         self.assertEqual(len(placements), 20)
         normalized = {tuple(wire[:3]) + (tuple(wire[3]),) for wire in self.connections}
-        self.assertEqual(len(normalized), 70)
+        self.assertEqual(len(normalized), 71)
         self.assertEqual(self.parts["bb1"]["type"], "wokwi-breadboard-half")
         self.assertEqual((self.parts["bb1"]["left"], self.parts["bb1"]["top"]), (330, 350))
         for strip_id in STRIPS:
@@ -163,15 +163,15 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
                 self.assertIsNotNone(wire)
                 self.assertEqual(wire[2], color)
 
-    def test_external_load_supply_stays_separate_from_uno_positive(self):
+    def test_single_supply_feeds_uno_and_external_loads(self):
         self.assertTrue(reachable(self.graph, "barrel-jack-breakout:5V", "bb1:bp.3"))
         self.assertTrue(reachable(self.graph, "barrel-jack-breakout:5V", "servo-visual-only:V+"))
         self.assertTrue(reachable(self.graph, "barrel-jack-breakout:GND", "servo-visual-only:GND"))
         self.assertTrue(reachable(self.graph, "barrel-jack-breakout:GND", "uno:GND.1"))
         self.assertTrue(reachable(self.graph, "uno:5V", "lcd:VCC"))
         self.assertTrue(reachable(self.graph, "uno:5V", "dfplayer-mock:VCC"))
-        self.assertFalse(reachable(self.graph, "barrel-jack-breakout:5V", "uno:5V"))
-        self.assertFalse(reachable(self.graph, "barrel-jack-breakout:5V", "uno:GND.1"))
+        self.assertTrue(reachable(self.graph, "barrel-jack-breakout:5V", "uno:5V"))
+        self.assertFalse(reachable(self.graph, "barrel-jack-breakout:5V", "uno:GND.1"))  # 5V never shorts to ground
         self.assertFalse(reachable(self.graph, "barrel-jack-breakout:GND", "barrel-jack-breakout:5V"))
 
     def test_motor_driver_wiring_and_separate_supply(self):
@@ -186,7 +186,7 @@ class DiagramBreadboardNetsTest(unittest.TestCase):
         self.assertIsNotNone(find_connection(self.connections, f"{driver}:VB_MINUS", "bb1:tn.7"))
         self.assertTrue(reachable(self.graph, f"{driver}:VB_PLUS", "barrel-jack-breakout:5V"))
         self.assertTrue(reachable(self.graph, f"{driver}:VB_MINUS", "barrel-jack-breakout:GND"))
-        self.assertFalse(reachable(self.graph, f"{driver}:VB_PLUS", "uno:5V"))
+        self.assertTrue(reachable(self.graph, f"{driver}:VB_PLUS", "uno:5V"))
         self.assertFalse(reachable(self.graph, f"{driver}:VB_PLUS", f"{driver}:VB_MINUS"))
         self.assertFalse(reachable(self.graph, f"{driver}:M1A", f"{driver}:M1B"))
         self.assertFalse(reachable(self.graph, f"{driver}:M1_OUT_A", "uno:5V"))

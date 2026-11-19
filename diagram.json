@@ -528,6 +528,12 @@
       []
     ],
     [
+      "barrel-jack-breakout:5V",
+      "uno:5V",
+      "#FF0000",
+      []
+    ],
+    [
       "uno:2",
       "neopixel-red:DIN",
       "#FFFF00",
