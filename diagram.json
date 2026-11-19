@@ -179,6 +179,15 @@
       "left": 1301,
       "rotate": 45,
       "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led-start",
+      "top": 500,
+      "left": 650,
+      "attrs": {
+        "color": "yellow"
+      }
     }
   ],
   "connections": [
@@ -646,6 +655,18 @@
       "motor-driver-mdd3a:M1_OUT_B",
       "motor-fit0458:MOTOR_MINUS",
       "#4169E1",
+      []
+    ],
+    [
+      "uno:A3",
+      "led-start:A",
+      "#00CED1",
+      []
+    ],
+    [
+      "led-start:C",
+      "bb1:bn.26",
+      "#000000",
       []
     ]
   ],

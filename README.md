@@ -33,7 +33,7 @@ A complete Simon Says sketch for the confirmed **Arduino Uno R3**, with four gen
 - `chips/visual-speaker.chip.c` / `.chip.json` — separate two-terminal component named `8 Ω / 0.5 W — no playback`; it is a visual pinout only.
 - `chips/barrel-jack-breakout.chip.c` / `.chip.json` — visual-only female DC barrel-jack-to-2-screw-terminal breakout marker, matching the form shown in the user's photo; its pins do not implement electrical pass-through.
 - `WIRING.md` — copy-ready table of every wire (from, to, color, purpose) for the real build.
-- `diagram.json`, `wokwi.toml` — the Wokwi canvas now matches the separate build variant's one-board layout: 19 parts, 71 connection entries (51 colored wires plus 20 `$bb` component-lead placements), four six-pixel strips, direct data pins D2/D3/D4/D12, and separate modeled Uno-logic and external-load breadboard rails. Strip DOUT and secondary power pins are open. This logical canvas reflects user-reported routing only; it does not verify physical connections, rail continuity/rating, current, safety, or rendered clearance.
+- `diagram.json`, `wokwi.toml` — the Wokwi canvas now matches the separate build variant's one-board layout: 20 parts, 73 connection entries (53 colored wires plus 20 `$bb` component-lead placements), four six-pixel strips, direct data pins D2/D3/D4/D12, and separate modeled Uno-logic and external-load breadboard rails. Strip DOUT and secondary power pins are open. This logical canvas reflects user-reported routing only; it does not verify physical connections, rail continuity/rating, current, safety, or rendered clearance.
 
 ## Build and run
 
@@ -282,7 +282,7 @@ The main diagram now matches the build variant's modeled routes; neither diagram
 
 With USB and all external supplies disconnected, verify strip markings/direction, actual rail continuity/splits, wire/connector protection and ratings, combined strip-plus-servo current, common ground, signal/backfeed behavior, and power sequencing. Keep external +5 V isolated from Uno 5V/barrel. The user-reported rail check does not independently verify these conditions or authorize energization.
 
-The copied diagram has 19 parts and 71 connection entries (51 colored wires plus 20 `$bb` component-lead placements). These counts are logical structure only, not evidence of present physical wiring, ratings, or rendered clearance. The breakout marker is visual-only. A fresh full render in Wokwi VS Code is still needed to verify appearance and clearance.
+The copied diagram has 20 parts and 73 connection entries (53 colored wires plus 20 `$bb` component-lead placements). These counts are logical structure only, not evidence of present physical wiring, ratings, or rendered clearance. The breakout marker is visual-only. A fresh full render in Wokwi VS Code is still needed to verify appearance and clearance.
 
 ### Step 3 — exact Grove 16x2 LCD
 
