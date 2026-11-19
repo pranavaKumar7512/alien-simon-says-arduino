@@ -529,7 +529,7 @@
     ],
     [
       "barrel-jack-breakout:5V",
-      "uno:5V",
+      "bb1:tp.2",
       "#FF0000",
       []
     ],
