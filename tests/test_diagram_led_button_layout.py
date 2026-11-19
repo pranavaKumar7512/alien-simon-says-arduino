@@ -2,6 +2,7 @@
 """Check the editor-derived physical footprints on the Wokwi breadboard."""
 
 import json
+import math
 import pathlib
 import unittest
 from itertools import combinations
@@ -15,11 +16,13 @@ CSS_ROW_PITCH = 7.65
 CSS_SCALE = CSS_ROW_PITCH / DIAGRAM_ROW_PITCH
 BOARD_CSS_WIDTH = 261.9484
 BOARD_CSS_HEIGHT = 165.5952
-STRIP_LEFTS = {
-    "neopixel-red": 647.537,
-    "neopixel-green": 727.537,
-    "neopixel-blue": 807.537,
-    "neopixel-yellow": 887.537,
+BOARD_CENTER_CSS = (BOARD_LEFT + BOARD_CSS_WIDTH / 2, BOARD_TOP + BOARD_CSS_HEIGHT / 2)
+BOARD_ROTATE = 45
+STRIP_TOPS_LEFTS = {
+    "neopixel-red": (40, 1150),
+    "neopixel-green": (40, 1350),
+    "neopixel-blue": (240, 1150),
+    "neopixel-yellow": (240, 1350),
 }
 EXPECTED_PART_COUNT = 19
 EXPECTED_CONNECTION_COUNT = 71
@@ -42,11 +45,42 @@ BUTTON_COLORS = {
 }
 
 
-def css_body_box(part, body_measurement):
+def rotate_point(point, degrees, center):
+    """Rotate clockwise on screen (y down) about center, matching Wokwi rotate."""
+    radians = math.radians(degrees)
+    dx, dy = point[0] - center[0], point[1] - center[1]
+    return (
+        center[0] + dx * math.cos(radians) - dy * math.sin(radians),
+        center[1] + dx * math.sin(radians) + dy * math.cos(radians),
+    )
+
+
+def board_local_body_center(part, body_measurement, board_rotate):
+    """Body center in the un-tilted board frame (undoes the breadboard rotate)."""
     width, height, offset_x, offset_y = body_measurement
-    left = BOARD_LEFT + (part["left"] - BOARD_LEFT) * CSS_SCALE + offset_x
-    top = BOARD_TOP + (part["top"] - BOARD_TOP) * CSS_SCALE + offset_y
-    return (left, top, left + width, top + height)
+    center = (
+        BOARD_LEFT + (part["left"] - BOARD_LEFT) * CSS_SCALE + offset_x + width / 2,
+        BOARD_TOP + (part["top"] - BOARD_TOP) * CSS_SCALE + offset_y + height / 2,
+    )
+    return rotate_point(center, -board_rotate, BOARD_CENTER_CSS)
+
+
+def board_local_anchor(part, body_measurement, board_rotate):
+    """Un-tilted left/top the part had before the breadboard was rotated."""
+    width, height, offset_x, offset_y = body_measurement
+    center_x, center_y = board_local_body_center(part, body_measurement, board_rotate)
+    local_css_left = center_x - width / 2 - offset_x
+    local_css_top = center_y - height / 2 - offset_y
+    return (
+        BOARD_LEFT + (local_css_left - BOARD_LEFT) / CSS_SCALE,
+        BOARD_TOP + (local_css_top - BOARD_TOP) / CSS_SCALE,
+    )
+
+
+def css_body_box(part, body_measurement, board_rotate=0):
+    width, height, _offset_x, _offset_y = body_measurement
+    center_x, center_y = board_local_body_center(part, body_measurement, board_rotate)
+    return (center_x - width / 2, center_y - height / 2, center_x + width / 2, center_y + height / 2)
 
 
 def css_edge_clearance(first, second):
@@ -68,6 +102,7 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
         with (ROOT / "diagram.json").open(encoding="utf-8") as diagram_file:
             cls.diagram = json.load(diagram_file)
         cls.parts = {part["id"]: part for part in cls.diagram["parts"]}
+        cls.board_rotate = cls.parts["bb1"].get("rotate", 0)
 
     def test_one_half_breadboard_uses_the_requested_origin(self):
         boards = [part for part in self.diagram["parts"] if part["type"] == "wokwi-breadboard-half"]
@@ -76,7 +111,7 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             {key: boards[0][key] for key in ("id", "top", "left", "attrs")},
             {"id": "bb1", "top": BOARD_TOP, "left": BOARD_LEFT, "attrs": {}},
         )
-        self.assertEqual(boards[0].get("rotate", 0), 0)
+        self.assertEqual(boards[0].get("rotate", 0), BOARD_ROTATE)
         self.assertIn("bb1", self.parts)
 
     def test_buttons_and_independent_strips_follow_reference_coordinates(self):
@@ -87,11 +122,15 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
                 button = self.parts[button_id]
                 self.assertEqual(button["type"], "wokwi-pushbutton-6mm")
                 self.assertEqual(button["attrs"]["color"], BUTTON_COLORS[button_id])
-                self.assertEqual(button["rotate"], 90)
-                self.assertAlmostEqual(button["top"], BOARD_TOP + 90.4)
+                self.assertEqual(button["rotate"], 90 + BOARD_ROTATE)
+                local_left, local_top = board_local_anchor(
+                    button, BUTTON_BODY, self.board_rotate
+                )
+                self.assertAlmostEqual(local_top, BOARD_TOP + 90.4, delta=0.01)
                 self.assertAlmostEqual(
-                    button["left"],
+                    local_left,
                     BOARD_LEFT + 212.4 + DIAGRAM_ROW_PITCH * (contact1 - 23),
+                    delta=0.01,
                 )
                 self.assertIn(contact1, range(1, 31))
                 self.assertIn(contact2, range(1, 31))
@@ -101,24 +140,37 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             [part["id"] for part in self.diagram["parts"] if part["id"].startswith("neopixel-")],
             ["neopixel-red", "neopixel-green", "neopixel-blue", "neopixel-yellow"],
         )
-        for strip_id, expected_left in STRIP_LEFTS.items():
+        for strip_id, (expected_top, expected_left) in STRIP_TOPS_LEFTS.items():
             with self.subTest(strip=strip_id):
                 strip = self.parts[strip_id]
                 self.assertEqual(strip["type"], "wokwi-led-strip")
                 self.assertEqual(strip["attrs"], {"pixels": "6", "pixelSize": "2020"})
                 self.assertEqual(strip["rotate"], 225)
-                self.assertAlmostEqual(strip["top"], 60)
+                self.assertAlmostEqual(strip["top"], expected_top)
                 self.assertAlmostEqual(strip["left"], expected_left)
                 self.assertLess(strip["top"], self.parts["button-red"]["top"])
+        # 2x2 block: red top-left, green top-right, blue bottom-left, yellow bottom-right.
+        self.assertEqual(self.parts["neopixel-red"]["left"], self.parts["neopixel-blue"]["left"])
+        self.assertEqual(self.parts["neopixel-green"]["left"], self.parts["neopixel-yellow"]["left"])
+        self.assertEqual(self.parts["neopixel-red"]["top"], self.parts["neopixel-green"]["top"])
+        self.assertEqual(self.parts["neopixel-blue"]["top"], self.parts["neopixel-yellow"]["top"])
+        self.assertGreaterEqual(
+            self.parts["neopixel-green"]["left"] - self.parts["neopixel-red"]["left"], 200
+        )
+        self.assertGreaterEqual(
+            self.parts["neopixel-blue"]["top"] - self.parts["neopixel-red"]["top"], 200
+        )
 
         tx_resistor = self.parts["mp3-tx-resistor"]
         self.assertEqual(tx_resistor["type"], "wokwi-resistor")
         self.assertEqual(tx_resistor["attrs"]["value"], "1000")
-        self.assertEqual(tx_resistor["rotate"], 90)
-        self.assertAlmostEqual(tx_resistor["top"], BOARD_TOP + 84.6)
+        self.assertEqual(tx_resistor["rotate"], 90 + BOARD_ROTATE)
+        local_left, local_top = board_local_anchor(tx_resistor, RESISTOR_BODY, self.board_rotate)
+        self.assertAlmostEqual(local_top, BOARD_TOP + 84.6, delta=0.01)
         self.assertAlmostEqual(
-            tx_resistor["left"],
+            local_left,
             BOARD_LEFT + 102.25 + DIAGRAM_ROW_PITCH * (1 - 12),
+            delta=0.01,
         )
 
         occupied_rows = [row for pair in BUTTON_ROWS.values() for row in pair]
@@ -134,7 +186,7 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             BOARD_TOP + BOARD_CSS_HEIGHT,
         )
         button_boxes = {
-            button_id: css_body_box(self.parts[button_id], BUTTON_BODY)
+            button_id: css_body_box(self.parts[button_id], BUTTON_BODY, self.board_rotate)
             for button_id in BUTTON_ROWS
         }
         # The measured body fixture is checked in its original board-local orientation.
@@ -142,7 +194,7 @@ class DiagramLedButtonLayoutTest(unittest.TestCase):
             "mp3-tx-resistor",
         ]
         resistor_boxes = {
-            resistor_id: css_body_box(self.parts[resistor_id], RESISTOR_BODY)
+            resistor_id: css_body_box(self.parts[resistor_id], RESISTOR_BODY, self.board_rotate)
             for resistor_id in resistor_ids
         }
         all_boxes = {

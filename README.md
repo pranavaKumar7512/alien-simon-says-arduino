@@ -217,7 +217,7 @@ The copied build canvas uses the reported jumper colors for strip power/return, 
 
 The main Wokwi diagram now matches the sibling build canvas: direct D2/D3/D4/D12 data links and separate modeled `bp` positive / `tn` return rails for strip and servo loads, with Uno logic power on separate `tp`/`bn` rails and a common ground reference through Uno GND. No DOUT chaining or secondary strip power pins are shown. The user confirms a yellow-colored physical D12-to-yellow-DIN jumper, but it has not been independently continuity-tested. The user reports professor verification of the first-breadboard rails for combined strip-plus-servo load; exact rating, actual current, wiring, and branch state are not independently verified and this is not energization approval. Verify actual strip pads/signal compatibility, common ground, power sequencing, and backfeed behavior. Firmware groups pixels 0–5 red, 6–11 green, 12–17 blue, and 18–23 yellow. Wokwi structure does not prove physical wiring, ratings, rendered clearance, or runtime behavior.
 
-The Wokwi half breadboard is a logical/visual wiring aid only: it does not verify physical tie-point continuity, component ratings, current capacity, servo supply isolation, or speaker compatibility. The canvas uses the 30-row half-board, four strips at the listed 225° positions, five mounted buttons, and the MP3 TX resistor. The layout tests check anchors, coordinates, footprints, and modeled nets, not visual overlap; inspect it in the user's Wokwi VS Code view for rendered clearance. The breadboard is at `(left, top)=(330, 350)`, Uno at `(260, 0)` rotated 45°, LCD at `(150, 300)`, servo at `(680, 125)`, breakout at `(820, 320)`, DFPlayer mock at `(680, 405)`, and visual speaker at `(820, 405)`. Twenty component-lead placements use `$bb`; the four strips are separate components with direct data wires and rail-routed supply. The physical adapter is omitted; the breakout remains visual-only. Keep every hard gate in [Power and physical limits](#power-and-physical-limits) closed until verified.
+The Wokwi half breadboard is a logical/visual wiring aid only: it does not verify physical tie-point continuity, component ratings, current capacity, servo supply isolation, or speaker compatibility. The canvas uses the 30-row half-board tilted 45° clockwise, four strips in a 2x2 block at the listed 225° positions, five mounted buttons and the MP3 TX resistor (rotated 135°, with their anchors re-positioned to stay on their holes). The layout tests check anchors, coordinates, footprints, and modeled nets, not visual overlap; inspect it in the user's Wokwi VS Code view for rendered clearance. The breadboard is at `(left, top)=(330, 350)` with `rotate` 45, Uno at `(260, 0)` rotated 45°, LCD at `(150, 300)`, servo at `(680, 125)`, breakout at `(820, 320)`, DFPlayer mock at `(680, 405)`, and visual speaker at `(820, 405)`. Twenty component-lead placements use `$bb`; the four strips are separate components with direct data wires and rail-routed supply. The physical adapter is omitted; the breakout remains visual-only. Keep every hard gate in [Power and physical limits](#power-and-physical-limits) closed until verified.
 
 ### Step 1 — four four-leg play buttons and one two-terminal Start button
 
@@ -264,10 +264,10 @@ Both main and build-variant Wokwi diagrams contain four six-pixel strips. Firmwa
 
 ```text
 Build-derived Wokwi topology (not a verified physical wiring record):
-[RED 0-5]      top 60 / left 647.537, rotated 225 degrees
-[GREEN 6-11]   top 60 / left 727.537, rotated 225 degrees
-[BLUE 12-17]   top 60 / left 807.537, rotated 225 degrees
-[YELLOW 18-23] top 60 / left 887.537, rotated 225 degrees
+[RED 0-5]      top 40 / left 1150, rotated 225 degrees (2x2 block, top-left)
+[GREEN 6-11]   top 40 / left 1350, rotated 225 degrees (2x2 block, top-right)
+[BLUE 12-17]   top 240 / left 1150, rotated 225 degrees (2x2 block, bottom-left)
+[YELLOW 18-23] top 240 / left 1350, rotated 225 degrees (2x2 block, bottom-right)
 
 Independent data links:
 Uno D2 -> red DIN; D3 -> green DIN; D4 -> blue DIN; D12 -> yellow DIN

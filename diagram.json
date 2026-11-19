@@ -15,6 +15,7 @@
       "id": "bb1",
       "top": 350,
       "left": 330,
+      "rotate": 45,
       "attrs": {}
     },
     {
@@ -28,9 +29,9 @@
     {
       "type": "wokwi-pushbutton-6mm",
       "id": "button-red",
-      "top": 440.4,
-      "left": 379.2,
-      "rotate": 90,
+      "top": 369.013,
+      "left": 409.209,
+      "rotate": 135,
       "attrs": {
         "color": "black"
       }
@@ -38,9 +39,9 @@
     {
       "type": "wokwi-pushbutton-6mm",
       "id": "button-green",
-      "top": 440.4,
-      "left": 436.8,
-      "rotate": 90,
+      "top": 409.743,
+      "left": 449.939,
+      "rotate": 135,
       "attrs": {
         "color": "black"
       }
@@ -48,9 +49,9 @@
     {
       "type": "wokwi-pushbutton-6mm",
       "id": "button-blue",
-      "top": 440.4,
-      "left": 494.4,
-      "rotate": 90,
+      "top": 450.472,
+      "left": 490.668,
+      "rotate": 135,
       "attrs": {
         "color": "black"
       }
@@ -58,9 +59,9 @@
     {
       "type": "wokwi-pushbutton-6mm",
       "id": "button-yellow",
-      "top": 440.4,
-      "left": 552,
-      "rotate": 90,
+      "top": 491.201,
+      "left": 531.397,
+      "rotate": 135,
       "attrs": {
         "color": "black"
       }
@@ -68,9 +69,9 @@
     {
       "type": "wokwi-pushbutton-6mm",
       "id": "button-start",
-      "top": 440.4,
-      "left": 609.6,
-      "rotate": 90,
+      "top": 531.931,
+      "left": 572.127,
+      "rotate": 135,
       "attrs": {
         "color": "gray"
       }
@@ -78,9 +79,9 @@
     {
       "type": "wokwi-resistor",
       "id": "mp3-tx-resistor",
-      "top": 434.6,
-      "left": 326.65,
-      "rotate": 90,
+      "top": 340.902,
+      "left": 376.784,
+      "rotate": 135,
       "attrs": {
         "value": "1000"
       }
@@ -122,8 +123,8 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-red",
-      "top": 60,
-      "left": 647.537,
+      "top": 40,
+      "left": 1150,
       "rotate": 225,
       "attrs": {
         "pixels": "6",
@@ -133,8 +134,8 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-green",
-      "top": 60,
-      "left": 727.537,
+      "top": 40,
+      "left": 1350,
       "rotate": 225,
       "attrs": {
         "pixels": "6",
@@ -144,8 +145,8 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-blue",
-      "top": 60,
-      "left": 807.537,
+      "top": 240,
+      "left": 1150,
       "rotate": 225,
       "attrs": {
         "pixels": "6",
@@ -155,8 +156,8 @@
     {
       "type": "wokwi-led-strip",
       "id": "neopixel-yellow",
-      "top": 60,
-      "left": 887.537,
+      "top": 240,
+      "left": 1350,
       "rotate": 225,
       "attrs": {
         "pixels": "6",
